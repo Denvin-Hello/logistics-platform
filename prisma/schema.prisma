@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("CUSTOMER")
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  assignedOrders Order[]  @relation("ProviderAssignments")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Order {
+  id                 String   @id @default(cuid())
+  orderNumber        String   @unique
+  customer           User     @relation(fields: [customerId], references: [id])
+  customerId         String
+  customerName       String
+  customerEmail      String
+  pickupAddress      String
+  pickupPhone        String
+  pickupDate         String?
+  pickupTime         String?
+  deliveryAddress    String
+  deliveryName       String
+  deliveryPhone      String
+  deliveryInstructions String
+  packageType        String
+  weight             Float
+  length             String
+  width              String
+  height             String
+  packageDescription String
+  fragile            Boolean
+  insurance          Boolean
+  signatureRequired  Boolean
+  amount             Int
+  description        String
+  paymentMethod      String
+  paymentStatus      String
+  status             String
+  assignedProvider   User?    @relation("ProviderAssignments", fields: [assignedProviderId], references: [id])
+  assignedProviderId String?
+  payments           Payment[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    String
+  amount     Int
+  method     String
+  status     String
+  reference  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
