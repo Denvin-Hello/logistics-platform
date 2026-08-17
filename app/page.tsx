@@ -383,26 +383,16 @@ export default function HomePage() {
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Support</h3>
+              <h3 className="font-semibold mb-4">Safety</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/help" className="hover:text-accent">
-                    Help Center
+                  <Link href="/driver-safety" className="hover:text-accent">
+                    Driver Safety
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contact" className="hover:text-accent">
-                    Contact Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/api" className="hover:text-accent">
-                    API Docs
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/status" className="hover:text-accent">
-                    System Status
+                  <Link href="/about" className="hover:text-accent">
+                    About Us
                   </Link>
                 </li>
               </ul>
@@ -413,21 +403,6 @@ export default function HomePage() {
                 <li>
                   <Link href="/about" className="hover:text-accent">
                     About
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/careers" className="hover:text-accent">
-                    Careers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="hover:text-accent">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="hover:text-accent">
-                    Terms
                   </Link>
                 </li>
               </ul>

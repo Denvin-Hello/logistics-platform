@@ -17,7 +17,7 @@ export function TrackingForm({ onTrack }: TrackingFormProps) {
   const [trackingNumber, setTrackingNumber] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!trackingNumber.trim()) return
 
@@ -25,7 +25,7 @@ export function TrackingForm({ onTrack }: TrackingFormProps) {
     setTimeout(() => {
       setIsLoading(false)
       onTrack(trackingNumber.trim())
-    }, 1000)
+    }, 500)
   }
 
   return (
@@ -65,18 +65,7 @@ export function TrackingForm({ onTrack }: TrackingFormProps) {
         </form>
 
         <div className="mt-6 text-sm text-muted-foreground">
-          <p className="font-medium mb-2">Sample tracking numbers to try:</p>
-          <div className="space-y-1">
-            <button onClick={() => setTrackingNumber("ORD001")} className="block text-accent hover:underline">
-              ORD001 - In Transit
-            </button>
-            <button onClick={() => setTrackingNumber("ORD002")} className="block text-accent hover:underline">
-              ORD002 - Delivered
-            </button>
-            <button onClick={() => setTrackingNumber("ORD003")} className="block text-accent hover:underline">
-              ORD003 - Pending Pickup
-            </button>
-          </div>
+          <p className="font-medium mb-2">Use the order number from your order confirmation.</p>
         </div>
       </CardContent>
     </Card>

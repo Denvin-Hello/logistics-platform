@@ -22,9 +22,14 @@ interface OrdersTableProps {
 
 export function OrdersTable({ orders }: OrdersTableProps) {
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status.toLowerCase().replace("_", "-")) {
       case "pending":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+      case "awaiting-payment":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+      case "paid":
+      case "assigned":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
       case "in-transit":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
       case "delivered":
@@ -70,7 +75,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={getStatusColor(order.status)}>{order.status.toUpperCase()}</Badge>
+                  <Badge className={getStatusColor(order.status)}>{order.status.replace("_", " ").toUpperCase()}</Badge>
                 </TableCell>
                 <TableCell>R{order.amount}</TableCell>
                 <TableCell>{order.date}</TableCell>

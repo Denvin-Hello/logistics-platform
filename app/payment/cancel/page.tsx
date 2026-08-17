@@ -1,9 +1,20 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { prisma } from "@/lib/prisma"
 import { XCircle, ArrowLeft, CreditCard } from "lucide-react"
 
-export default function PaymentCancelPage() {
+export const dynamic = "force-dynamic"
+
+export default async function PaymentCancelPage({
+  searchParams,
+}: {
+  searchParams: { order_id?: string }
+}) {
+  const order = searchParams.order_id
+    ? await prisma.order.findUnique({ where: { orderNumber: searchParams.order_id } })
+    : null
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -18,17 +29,27 @@ export default function PaymentCancelPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">
-                Your delivery order has been saved and you can complete the payment at any time.
-              </p>
-            </div>
+            {order ? (
+              <div className="bg-muted/50 rounded-lg p-4 text-left space-y-1">
+                <p className="text-sm text-muted-foreground">Order ID: {order.orderNumber}</p>
+                <p className="text-sm text-muted-foreground">
+                  {order.pickupAddress} → {order.deliveryAddress}
+                </p>
+                <p className="text-sm text-muted-foreground">Amount due: R{order.amount}</p>
+              </div>
+            ) : (
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  Your delivery order has been saved and you can complete the payment at any time.
+                </p>
+              </div>
+            )}
 
             <div className="flex flex-col gap-4">
               <Button asChild>
-                <Link href="/customer/new-order">
+                <Link href="/customer/orders">
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Try Payment Again
+                  View My Orders
                 </Link>
               </Button>
               <Button variant="outline" asChild>

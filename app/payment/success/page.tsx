@@ -1,9 +1,21 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { prisma } from "@/lib/prisma"
+import { formatRands } from "@/lib/format"
 import { CheckCircle, Package, MapPin, Clock } from "lucide-react"
 
-export default function PaymentSuccessPage() {
+export const dynamic = "force-dynamic"
+
+export default async function PaymentSuccessPage({
+  searchParams,
+}: {
+  searchParams: { payment_id?: string; order_id?: string }
+}) {
+  const order = searchParams.order_id
+    ? await prisma.order.findUnique({ where: { orderNumber: searchParams.order_id } })
+    : null
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
@@ -20,24 +32,32 @@ export default function PaymentSuccessPage() {
           <CardContent className="space-y-6">
             <div className="bg-muted/50 rounded-lg p-6">
               <h3 className="font-semibold mb-4">Order Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span>Order ID: #ORD001</span>
+              {order ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-left">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span>Order ID: {order.orderNumber}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>Package: {order.packageType}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {order.pickupAddress} → {order.deliveryAddress}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Payment: {formatRands(order.amount)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>Estimated delivery: 2-4 hours</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>Cape Town → Stellenbosch</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span>Payment: R180.00</span>
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Your order has been confirmed. Details were sent to your email.
+                </p>
+              )}
             </div>
 
             <div className="space-y-4">

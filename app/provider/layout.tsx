@@ -14,5 +14,9 @@ export default async function ProviderLayout({
     redirect("/auth")
   }
 
+  if (session.user.status !== "APPROVED") {
+    redirect("/application-status")
+  }
+
   return children
 }

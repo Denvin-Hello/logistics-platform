@@ -4,17 +4,14 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Package, MapPin, DollarSign, Settings, User, Truck, BarChart3, Bell } from "lucide-react"
+import { LayoutDashboard, Package, MapPin, DollarSign, Truck, Eye } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/provider", icon: LayoutDashboard },
   { name: "Active Deliveries", href: "/provider/deliveries", icon: Package },
   { name: "Route Planning", href: "/provider/routes", icon: MapPin },
+  { name: "Driver Safety", href: "/provider/driver-safety", icon: Eye },
   { name: "Earnings", href: "/provider/earnings", icon: DollarSign },
-  { name: "Analytics", href: "/provider/analytics", icon: BarChart3 },
-  { name: "Notifications", href: "/provider/notifications", icon: Bell },
-  { name: "Profile", href: "/provider/profile", icon: User },
-  { name: "Settings", href: "/provider/settings", icon: Settings },
 ]
 
 export function ProviderSidebar() {

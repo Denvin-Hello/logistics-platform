@@ -4,18 +4,15 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Package, Plus, MapPin, CreditCard, Settings, User, History, Bell } from "lucide-react"
+import { LayoutDashboard, Package, Plus, MapPin, CreditCard, LifeBuoy } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/customer", icon: LayoutDashboard },
   { name: "New Order", href: "/customer/new-order", icon: Plus },
   { name: "My Orders", href: "/customer/orders", icon: Package },
   { name: "Track Package", href: "/customer/tracking", icon: MapPin },
-  { name: "Order History", href: "/customer/history", icon: History },
-  { name: "Payments", href: "/customer/payments", icon: CreditCard },
-  { name: "Notifications", href: "/customer/notifications", icon: Bell },
-  { name: "Profile", href: "/customer/profile", icon: User },
-  { name: "Settings", href: "/customer/settings", icon: Settings },
+  { name: "Payments", href: "/customer/orders", icon: CreditCard },
+  { name: "Support", href: "/customer/support", icon: LifeBuoy },
 ]
 
 export function CustomerSidebar() {

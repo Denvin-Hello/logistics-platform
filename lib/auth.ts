@@ -29,6 +29,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = user.id
         session.user.role = user.role as "CUSTOMER" | "PROVIDER" | "ADMIN"
+        session.user.status = user.status
       }
       return session
     },

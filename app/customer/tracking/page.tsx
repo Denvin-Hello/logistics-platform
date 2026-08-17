@@ -8,89 +8,63 @@ import { LiveMap } from "@/components/tracking/live-map"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Map } from "lucide-react"
 
-// Mock tracking data (same as main tracking page)
-const mockTrackingData = {
-  ORD001: {
-    status: "In Transit",
-    estimatedDelivery: "Today, 3:30 PM",
-    events: [
-      {
-        id: "1",
-        status: "Order Placed",
-        description: "Your delivery order has been confirmed and payment processed",
-        location: "Cape Town, South Africa",
-        timestamp: "Today, 10:00 AM",
-        completed: true,
-      },
-      {
-        id: "2",
-        status: "Picked Up",
-        description: "Package has been collected from pickup location",
-        location: "123 Main Street, Cape Town",
-        timestamp: "Today, 11:30 AM",
-        completed: true,
-      },
-      {
-        id: "3",
-        status: "In Transit",
-        description: "Package is on the way to destination",
-        location: "N1 Highway, en route to Stellenbosch",
-        timestamp: "Today, 12:45 PM",
-        completed: true,
-      },
-      {
-        id: "4",
-        status: "Out for Delivery",
-        description: "Package is out for final delivery",
-        location: "Stellenbosch, South Africa",
-        timestamp: "Expected: Today, 3:00 PM",
-        completed: false,
-      },
-      {
-        id: "5",
-        status: "Delivered",
-        description: "Package has been successfully delivered",
-        location: "456 Oak Avenue, Stellenbosch",
-        timestamp: "Expected: Today, 3:30 PM",
-        completed: false,
-      },
-    ],
-    liveTracking: {
-      currentLocation: {
-        lat: -33.9249,
-        lng: 18.4241,
-        address: "N1 Highway, 15km from Stellenbosch",
-      },
-      destination: {
-        lat: -33.9321,
-        lng: 18.8602,
-        address: "456 Oak Avenue, Stellenbosch, 7600",
-      },
-      estimatedArrival: "Today, 3:30 PM",
-      driverInfo: {
-        name: "Alex Driver",
-        phone: "+27 82 123 4567",
-        vehicle: "White Toyota Hilux - CA 123 456",
-      },
-    },
-  },
+interface TrackingEvent {
+  id: string
+  status: string
+  description: string
+  location: string
+  timestamp: string
+  completed: boolean
+}
+
+interface LiveTrackingInfo {
+  currentLocation: { lat: number; lng: number; address: string }
+  destination: { lat: number; lng: number; address: string }
+  estimatedArrival: string
+  driverInfo: { name: string; phone: string; vehicle: string }
+}
+
+interface TrackingData {
+  status: string
+  estimatedDelivery: string
+  events: TrackingEvent[]
+  liveTracking?: LiveTrackingInfo
 }
 
 export default function CustomerTrackingPage() {
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null)
+  const [trackingData, setTrackingData] = useState<TrackingData | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [showMap, setShowMap] = useState(false)
 
-  const handleTrack = (number: string) => {
-    setTrackingNumber(number)
+  const handleTrack = async (number: string) => {
+    setNotFound(false)
     setShowMap(false)
+    try {
+      const res = await fetch(`/api/tracking/${encodeURIComponent(number)}`)
+      if (res.status === 404) {
+        setNotFound(true)
+        setTrackingData(null)
+        setTrackingNumber(number)
+        return
+      }
+      if (!res.ok) throw new Error("tracking failed")
+      const data: TrackingData = await res.json()
+      setTrackingData(data)
+      setTrackingNumber(number)
+    } catch {
+      setNotFound(true)
+      setTrackingData(null)
+      setTrackingNumber(number)
+    }
   }
 
   const handleBack = () => {
     setTrackingNumber(null)
+    setTrackingData(null)
+    setNotFound(false)
     setShowMap(false)
   }
-
-  const trackingData = trackingNumber ? mockTrackingData[trackingNumber as keyof typeof mockTrackingData] : null
 
   return (
     <div className="flex h-screen bg-background">
@@ -102,11 +76,23 @@ export default function CustomerTrackingPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">Track Your Packages</h1>
               <p className="text-muted-foreground mb-8">
-                Enter a tracking number to see real-time updates on your delivery
+                Enter your order number to see real-time updates on your delivery
               </p>
               <div className="max-w-md">
                 <TrackingForm onTrack={handleTrack} />
               </div>
+            </div>
+          ) : notFound ? (
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">Tracking Number Not Found</h2>
+              <p className="text-muted-foreground mb-8">
+                We couldn't find any information for tracking number "{trackingNumber}". Please check the number and try
+                again.
+              </p>
+              <Button onClick={handleBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
             </div>
           ) : trackingData ? (
             <div>
@@ -142,17 +128,7 @@ export default function CustomerTrackingPage() {
               )}
             </div>
           ) : (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Tracking Number Not Found</h2>
-              <p className="text-muted-foreground mb-8">
-                We couldn't find any information for tracking number "{trackingNumber}". Please check the number and try
-                again.
-              </p>
-              <Button onClick={handleBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Try Again
-              </Button>
-            </div>
+            <div className="text-center">Loading tracking details…</div>
           )}
         </div>
       </div>

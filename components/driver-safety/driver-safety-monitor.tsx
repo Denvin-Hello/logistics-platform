@@ -55,6 +55,29 @@ export function DriverSafetyMonitor() {
   }, [faceMeshLoaded, cameraLoaded])
 
   useEffect(() => {
+    return () => {
+      if (cameraRef.current) {
+        try {
+          cameraRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+        tracks.forEach((track) => track.stop())
+      }
+      if (audioCtxRef.current) {
+        try {
+          void audioCtxRef.current.close()
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!running) return
 
     const interval = window.setInterval(() => {
@@ -241,7 +264,7 @@ export function DriverSafetyMonitor() {
     }
 
     const faceMesh = new win.FaceMesh({
-      locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`,
     })
     faceMesh.setOptions({
       maxNumFaces: 1,
@@ -298,12 +321,12 @@ export function DriverSafetyMonitor() {
   return (
     <section className="space-y-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
       <Script
-        src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"
+        src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js"
         strategy="afterInteractive"
         onLoad={() => setFaceMeshLoaded(true)}
       />
       <Script
-        src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
+        src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"
         strategy="afterInteractive"
         onLoad={() => setCameraLoaded(true)}
       />

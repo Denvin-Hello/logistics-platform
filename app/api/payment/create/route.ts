@@ -1,36 +1,58 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { randomUUID } from "node:crypto"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { isSameOrigin, rateLimit } from "@/lib/security"
+import { buildPayFastCheckout, payfastIsConfigured } from "@/lib/payfast"
 
 export async function POST(request: NextRequest) {
+  const rate = rateLimit(request, { limit: 10, windowMs: 60_000 })
+  if (!rate.ok) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 })
+  }
+
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id || session.user.role !== "CUSTOMER" || session.user.status !== "APPROVED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { orderDetails, paymentMethod } = body
+    const { orderId, paymentMethod } = body
 
-    if (!orderDetails?.orderId) {
+    if (!orderId || typeof orderId !== "string") {
       return NextResponse.json({ error: "Missing order ID" }, { status: 400 })
     }
 
     const order = await prisma.order.findUnique({
-      where: { orderNumber: orderDetails.orderId },
+      where: { orderNumber: orderId },
+      include: { payments: true },
     })
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    if (order.customerEmail !== session.user.email) {
+    if (order.customerId !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const paymentId = `PF_${Date.now()}`
+    if (order.paymentStatus === "PAID") {
+      return NextResponse.json({
+        success: true,
+        alreadyPaid: true,
+        paymentId: order.payments[0]?.reference || "",
+        redirectUrl: `/payment/success?payment_id=${order.payments[0]?.reference || ""}&order_id=${order.orderNumber}`,
+      })
+    }
+
+    const paymentId = `PF_${randomUUID()}`
 
     await prisma.payment.create({
       data: {
@@ -50,10 +72,31 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const baseUrl = request.nextUrl.origin
+    const orderNumber = order.orderNumber
+
+    // When PayFast credentials are configured, send the customer to the hosted
+    // checkout. Otherwise fall back to the simulated demo flow.
+    if (payfastIsConfigured()) {
+      const checkout = buildPayFastCheckout({
+        mPaymentId: orderNumber,
+        amount: order.amount,
+        itemName: order.description || "LogiConnect Delivery Service",
+        itemDescription: `${order.packageType} delivery from ${order.pickupAddress} to ${order.deliveryAddress}`,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        returnUrl: `${baseUrl}/payment/success?payment_id=${paymentId}&order_id=${orderNumber}`,
+        cancelUrl: `${baseUrl}/payment/cancel?order_id=${orderNumber}`,
+        notifyUrl: `${baseUrl}/api/payment/notify`,
+      })
+
+      return NextResponse.json({ success: true, paymentId, checkout })
+    }
+
     return NextResponse.json({
       success: true,
       paymentId,
-      redirectUrl: `/payment/success?payment_id=${paymentId}&order_id=${order.orderNumber}`,
+      redirectUrl: `/payment/success?payment_id=${paymentId}&order_id=${orderNumber}`,
     })
   } catch (error) {
     console.error("Payment creation error:", error)

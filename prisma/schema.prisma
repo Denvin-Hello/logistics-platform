@@ -14,16 +14,24 @@ generator client {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  role          String    @default("CUSTOMER")
-  accounts      Account[]
-  sessions      Session[]
-  orders        Order[]
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  role           String    @default("CUSTOMER")
+  status         String    @default("APPROVED")
+  businessName   String?
+  declinedReason String?
+  createdAt      DateTime  @default(now())
+  accounts       Account[]
+  sessions       Session[]
+  orders         Order[]
   assignedOrders Order[]  @relation("ProviderAssignments")
+  supportTickets SupportTicket[]
+
+  @@index([role])
+  @@index([status])
 }
 
 model Account {
@@ -42,6 +50,7 @@ model Account {
   user               User    @relation(fields: [userId], references: [id])
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -50,54 +59,77 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Order {
-  id                 String   @id @default(cuid())
-  orderNumber        String   @unique
-  customer           User     @relation(fields: [customerId], references: [id])
-  customerId         String
-  customerName       String
-  customerEmail      String
-  pickupAddress      String
-  pickupPhone        String
-  pickupDate         String?
-  pickupTime         String?
-  deliveryAddress    String
-  deliveryName       String
-  deliveryPhone      String
+  id                   String   @id @default(cuid())
+  orderNumber          String   @unique
+  customer             User     @relation(fields: [customerId], references: [id])
+  customerId           String
+  customerName         String
+  customerEmail        String
+  pickupAddress        String
+  pickupPhone          String
+  pickupDate           String?
+  pickupTime           String?
+  deliveryAddress      String
+  deliveryName         String
+  deliveryPhone        String
   deliveryInstructions String
-  packageType        String
-  weight             Float
-  length             String
-  width              String
-  height             String
-  packageDescription String
-  fragile            Boolean
-  insurance          Boolean
-  signatureRequired  Boolean
-  amount             Int
-  description        String
-  paymentMethod      String
-  paymentStatus      String
-  status             String
-  assignedProvider   User?    @relation("ProviderAssignments", fields: [assignedProviderId], references: [id])
-  assignedProviderId String?
-  payments           Payment[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  packageType          String
+  weight               Float
+  length               Float
+  width                Float
+  height               Float
+  packageDescription   String
+  fragile              Boolean
+  insurance            Boolean
+  signatureRequired    Boolean
+  amount               Int
+  description          String
+  paymentMethod        String
+  paymentStatus        String
+  status               String
+  assignedProvider     User?    @relation("ProviderAssignments", fields: [assignedProviderId], references: [id])
+  assignedProviderId   String?
+  payments             Payment[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([assignedProviderId])
+  @@index([status])
+  @@index([paymentStatus])
 }
 
 model Payment {
-  id         String   @id @default(cuid())
-  order      Order    @relation(fields: [orderId], references: [id])
-  orderId    String
-  amount     Int
-  method     String
-  status     String
-  reference  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id])
+  orderId   String
+  amount    Int
+  method    String
+  status    String
+  reference String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  subject   String
+  message   String
+  orderId   String?
+  status    String   @default("OPEN")
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
 }
 
 model VerificationToken {

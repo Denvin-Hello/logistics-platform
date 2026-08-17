@@ -7,27 +7,18 @@ import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard,
   Users,
-  Package,
   Truck,
-  DollarSign,
-  Settings,
-  BarChart3,
+  ClipboardList,
+  LifeBuoy,
   Shield,
-  Bell,
-  FileText,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Orders", href: "/admin/orders", icon: Package },
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Providers", href: "/admin/providers", icon: Truck },
-  { name: "Payments", href: "/admin/payments", icon: DollarSign },
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { name: "Reports", href: "/admin/reports", icon: FileText },
-  { name: "Notifications", href: "/admin/notifications", icon: Bell },
-  { name: "Security", href: "/admin/security", icon: Shield },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Applications", href: "/admin/applications", icon: ClipboardList },
+  { name: "Support", href: "/admin/support", icon: LifeBuoy },
 ]
 
 export function AdminSidebar() {
