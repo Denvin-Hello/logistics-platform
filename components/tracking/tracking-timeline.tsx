@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { SUPPORT_EMAIL } from "@/lib/company"
 import { CheckCircle, Circle, MapPin, Package, Truck, User, Clock } from "lucide-react"
 
 interface TrackingEvent {
@@ -164,12 +165,10 @@ export function TrackingTimeline({ trackingNumber, events, currentStatus, estima
           <div className="bg-muted/50 rounded-lg p-4">
             <h4 className="font-medium mb-2">Need Help?</h4>
             <p className="text-sm text-muted-foreground mb-2">
-              If you have any questions about your delivery, contact us:
+              If you have any questions about your delivery, contact us at:
             </p>
             <div className="text-sm space-y-1">
-              <p>📞 Phone: +27 21 123 4567</p>
-              <p>📧 Email: support@logiconnect.co.za</p>
-              <p>💬 Live Chat: Available 24/7</p>
+              <p>📧 Email: {SUPPORT_EMAIL}</p>
             </div>
           </div>
         </CardContent>

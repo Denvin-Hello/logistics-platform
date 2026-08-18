@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
 import { formatRands } from "@/lib/format"
+import { SUPPORT_EMAIL } from "@/lib/company"
 import { CheckCircle, Package, MapPin, Clock } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -98,7 +99,7 @@ export default async function PaymentSuccessPage({
 
             <div className="text-sm text-muted-foreground">
               <p>You will receive email and SMS notifications about your delivery status.</p>
-              <p>Need help? Contact our support team at support@logiconnect.co.za</p>
+              <p>Need help? Contact our support team at {SUPPORT_EMAIL}</p>
             </div>
           </CardContent>
         </Card>

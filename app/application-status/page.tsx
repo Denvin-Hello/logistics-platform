@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { authOptions } from "@/lib/auth"
+import { SUPPORT_EMAIL } from "@/lib/company"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, XCircle, CheckCircle } from "lucide-react"
@@ -46,7 +47,7 @@ export default async function ApplicationStatusPage() {
         <CardContent className="space-y-4">
           {declined ? (
             <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
-              If you have any questions, contact our support team.
+              If you have any questions, contact our support team at {SUPPORT_EMAIL}.
             </div>
           ) : (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">

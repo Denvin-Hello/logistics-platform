@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
+import { sendProviderSignupNotification } from "@/lib/email"
 import { z } from "zod"
 
 const signupSchema = z.object({
@@ -59,6 +60,16 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
       throw err
+    }
+
+    if (isProvider) {
+      void sendProviderSignupNotification({
+        name: name.trim(),
+        businessName: (businessName || "").trim() || null,
+        email: normalizedEmail,
+      }).catch((err) => {
+        console.error("Provider notification email failed:", err)
+      })
     }
 
     return NextResponse.json({ ok: true })

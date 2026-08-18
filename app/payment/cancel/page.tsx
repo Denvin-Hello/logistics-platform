@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
+import { SUPPORT_EMAIL } from "@/lib/company"
 import { XCircle, ArrowLeft, CreditCard } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -61,7 +62,7 @@ export default async function PaymentCancelPage({
             </div>
 
             <div className="text-sm text-muted-foreground">
-              <p>Need help with payment? Contact our support team at support@logiconnect.co.za</p>
+              <p>Need help with payment? Contact our support team at {SUPPORT_EMAIL}</p>
             </div>
           </CardContent>
         </Card>
