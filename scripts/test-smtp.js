@@ -9,9 +9,9 @@ async function main() {
   const info = await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: "ramsiladenvin@gmail.com",
-    subject: "SMTP test — Mailtrap",
-    text: "SMTP test to Mailtrap: if you see this in the Mailtrap inbox, it works.",
-    html: "<p>SMTP test to Mailtrap: <strong>if you see this in the Mailtrap inbox, it works.</strong></p>",
+    subject: "SMTP test — MailerSend",
+    text: "SMTP test to MailerSend: if you see this in your inbox, it works.",
+    html: "<p>SMTP test to MailerSend: <strong>if you see this in your inbox, it works.</strong></p>",
   });
 
   console.log("Sent message id:", info.messageId || info);
