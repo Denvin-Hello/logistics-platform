@@ -83,16 +83,29 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
     orderNumber: order.orderNumber,
     status: statusLabel(order.status),
     estimatedDelivery: order.status === "DELIVERED" ? "Delivered" : "See timeline for latest update",
+    pickupAddress: order.pickupAddress,
+    deliveryAddress: order.deliveryAddress,
     events,
-    liveTracking: order.status === "IN_TRANSIT" ? {
-      currentLocation: { lat: -33.9249, lng: 18.4241, address: order.deliveryAddress },
-      destination: { lat: -33.9321, lng: 18.8602, address: order.deliveryAddress },
-      estimatedArrival: "As soon as the provider updates the route",
-      driverInfo: {
-        name: order.assignedProvider?.businessName || order.assignedProvider?.name || "Assigned provider",
-        phone: "—",
-        vehicle: "—",
-      },
-    } : undefined,
+    liveTracking:
+      order.status === "IN_TRANSIT"
+        ? {
+            driverLocation:
+              order.driverLat != null && order.driverLng != null
+                ? {
+                    lat: order.driverLat,
+                    lng: order.driverLng,
+                    updatedAt: order.driverLocationUpdatedAt?.toISOString() ?? null,
+                  }
+                : null,
+            pickupAddress: order.pickupAddress,
+            deliveryAddress: order.deliveryAddress,
+            estimatedArrival: "See timeline for latest update",
+            driverInfo: {
+              name: order.assignedProvider?.businessName || order.assignedProvider?.name || "Assigned provider",
+              phone: "—",
+              vehicle: "—",
+            },
+          }
+        : undefined,
   })
 }

@@ -94,6 +94,9 @@ model Order {
   status               String
   assignedProvider     User?    @relation("ProviderAssignments", fields: [assignedProviderId], references: [id])
   assignedProviderId   String?
+  driverLat            Float?
+  driverLng            Float?
+  driverLocationUpdatedAt DateTime?
   payments             Payment[]
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

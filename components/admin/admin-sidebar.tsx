@@ -11,10 +11,12 @@ import {
   ClipboardList,
   LifeBuoy,
   Shield,
+  Package,
 } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Orders", href: "/admin/orders", icon: Package },
   { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Providers", href: "/admin/providers", icon: Truck },
   { name: "Applications", href: "/admin/applications", icon: ClipboardList },

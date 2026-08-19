@@ -4,12 +4,13 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Package, MapPin, DollarSign, Truck, Eye } from "lucide-react"
+import { LayoutDashboard, Package, MapPin, DollarSign, Truck, Eye, Satellite } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/provider", icon: LayoutDashboard },
   { name: "Active Deliveries", href: "/provider/deliveries", icon: Package },
   { name: "Route Planning", href: "/provider/routes", icon: MapPin },
+  { name: "Live Tracking", href: "/provider/live-tracking", icon: Satellite },
   { name: "Driver Safety", href: "/provider/driver-safety", icon: Eye },
   { name: "Earnings", href: "/provider/earnings", icon: DollarSign },
 ]

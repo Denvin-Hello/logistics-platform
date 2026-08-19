@@ -17,18 +17,11 @@ interface TrackingEvent {
   completed: boolean
 }
 
-interface LiveTrackingInfo {
-  currentLocation: { lat: number; lng: number; address: string }
-  destination: { lat: number; lng: number; address: string }
-  estimatedArrival: string
-  driverInfo: { name: string; phone: string; vehicle: string }
-}
-
 interface TrackingData {
   status: string
   estimatedDelivery: string
   events: TrackingEvent[]
-  liveTracking?: LiveTrackingInfo
+  liveTracking?: unknown
 }
 
 export default function CustomerTrackingPage() {
@@ -110,15 +103,9 @@ export default function CustomerTrackingPage() {
                 )}
               </div>
 
-              {showMap && trackingData.liveTracking ? (
-                <LiveMap
-                  trackingNumber={trackingNumber}
-                  currentLocation={trackingData.liveTracking.currentLocation}
-                  destination={trackingData.liveTracking.destination}
-                  estimatedArrival={trackingData.liveTracking.estimatedArrival}
-                  driverInfo={trackingData.liveTracking.driverInfo}
-                />
-              ) : (
+{showMap && trackingData.liveTracking ? (
+              <LiveMap trackingNumber={trackingNumber} />
+            ) : (
                 <TrackingTimeline
                   trackingNumber={trackingNumber}
                   events={trackingData.events}
