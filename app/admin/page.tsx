@@ -53,7 +53,8 @@ export default async function AdminDashboard() {
   }
 
   const mappedOrders = recentOrders.map((o) => ({
-    id: o.orderNumber,
+    id: o.id,
+    orderNumber: o.orderNumber,
     customer: o.customerName,
     provider: o.assignedProvider?.businessName || o.assignedProvider?.name || "—",
     pickup: o.pickupAddress,

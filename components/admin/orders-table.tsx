@@ -2,11 +2,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, MoreHorizontal } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Eye } from "lucide-react"
+import Link from "next/link"
 
 interface Order {
   id: string
+  orderNumber: string
   customer: string
   provider: string
   pickup: string
@@ -64,7 +65,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
           <TableBody>
             {orders.map((order) => (
               <TableRow key={order.id}>
-                <TableCell className="font-medium">{order.id}</TableCell>
+                <TableCell className="font-medium">{order.orderNumber}</TableCell>
                 <TableCell>{order.customer}</TableCell>
                 <TableCell>{order.provider}</TableCell>
                 <TableCell className="max-w-[200px]">
@@ -79,23 +80,12 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                 </TableCell>
                 <TableCell>R{order.amount}</TableCell>
                 <TableCell>{order.date}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>Edit Order</DropdownMenuItem>
-                      <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                      <DropdownMenuItem>Contact Provider</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <TableCell className="w-[60px]">
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href={`/admin/orders/${order.id}`}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

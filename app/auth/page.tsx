@@ -16,5 +16,8 @@ export default async function AuthPage() {
     redirect("/customer")
   }
 
-  return <AuthForm />
+  const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+  const githubEnabled = Boolean(process.env.GITHUB_ID && process.env.GITHUB_SECRET)
+
+  return <AuthForm googleEnabled={googleEnabled} githubEnabled={githubEnabled} />
 }

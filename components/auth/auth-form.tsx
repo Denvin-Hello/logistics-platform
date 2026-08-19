@@ -12,7 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Truck, User } from "lucide-react"
 
-export function AuthForm() {
+interface AuthFormProps {
+  googleEnabled?: boolean
+  githubEnabled?: boolean
+}
+
+export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [customerName, setCustomerName] = useState("")
@@ -157,12 +162,21 @@ export function AuthForm() {
                   </Button>
                 </form>
                 <div className="space-y-3 pt-2">
-                  <Button type="button" className="w-full" onClick={() => handleProviderSignIn("google")}>
-                    Continue with Google
-                  </Button>
-                  <Button type="button" variant="outline" className="w-full" onClick={() => handleProviderSignIn("github")}>
-                    Continue with GitHub
-                  </Button>
+                  {googleEnabled ? (
+                    <Button type="button" className="w-full" onClick={() => handleProviderSignIn("google")}>
+                      Continue with Google
+                    </Button>
+                  ) : null}
+                  {githubEnabled ? (
+                    <Button type="button" variant="outline" className="w-full" onClick={() => handleProviderSignIn("github")}>
+                      Continue with GitHub
+                    </Button>
+                  ) : null}
+                  {!googleEnabled && !githubEnabled ? (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Social sign-in is not available right now. Use email magic links instead.
+                    </p>
+                  ) : null}
                 </div>
               </TabsContent>
 

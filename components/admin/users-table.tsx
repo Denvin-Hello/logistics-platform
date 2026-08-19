@@ -1,10 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MoreHorizontal, Mail, Phone } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Mail, Phone } from "lucide-react"
 
 interface User {
   id: string
@@ -63,7 +61,6 @@ export function UsersTable({ users, title, description }: UsersTableProps) {
               <TableHead>Status</TableHead>
               <TableHead>Orders/Rating</TableHead>
               <TableHead>Join Date</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,25 +105,6 @@ export function UsersTable({ users, title, description }: UsersTableProps) {
                   )}
                 </TableCell>
                 <TableCell>{user.joinDate}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem>Send Message</DropdownMenuItem>
-                      <DropdownMenuItem>View Orders</DropdownMenuItem>
-                      {user.status === "active" ? (
-                        <DropdownMenuItem className="text-red-600">Suspend User</DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem className="text-green-600">Activate User</DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>

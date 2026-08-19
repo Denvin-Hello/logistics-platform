@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
-import { UsersTable } from "@/components/admin/users-table"
+import { CustomersTable } from "@/components/admin/customers-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CardDescription } from "@/components/ui/card"
 
@@ -86,7 +86,7 @@ export default async function AdminCustomersPage() {
             </Card>
           </div>
 
-          <UsersTable users={mapped} title="All Customers" description="Complete list of registered customers" />
+          <CustomersTable users={mapped} title="All Customers" description="Complete list of registered customers" />
         </div>
       </div>
     </div>
