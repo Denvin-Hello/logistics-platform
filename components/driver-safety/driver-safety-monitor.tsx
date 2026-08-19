@@ -55,21 +55,25 @@ export function DriverSafetyMonitor() {
   }, [faceMeshLoaded, cameraLoaded])
 
   useEffect(() => {
+    const camera = cameraRef.current
+    const video = videoRef.current
+    const audioCtx = audioCtxRef.current
+
     return () => {
-      if (cameraRef.current) {
+      if (camera) {
         try {
-          cameraRef.current.stop()
+          camera.stop()
         } catch {
           // ignore
         }
       }
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
+      if (video?.srcObject) {
+        const tracks = (video.srcObject as MediaStream).getTracks()
         tracks.forEach((track) => track.stop())
       }
-      if (audioCtxRef.current) {
+      if (audioCtx) {
         try {
-          void audioCtxRef.current.close()
+          void audioCtx.close()
         } catch {
           // ignore
         }

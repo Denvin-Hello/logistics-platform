@@ -3,6 +3,7 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { LifeBuoy } from "lucide-react"
+import { SupportTicketActions } from "@/components/admin/support-ticket-actions"
 
 export const dynamic = "force-dynamic"
 
@@ -92,6 +93,7 @@ export default async function AdminSupportPage() {
                         <span className="text-xs text-muted-foreground">
                           {ticket.createdAt.toLocaleString()}
                         </span>
+                        <SupportTicketActions ticketId={ticket.id} status={ticket.status} />
                       </div>
                     </div>
                   </CardHeader>
