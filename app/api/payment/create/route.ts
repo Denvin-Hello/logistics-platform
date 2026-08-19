@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const orderNumber = order.orderNumber
 
     // When PayFast credentials are configured, send the customer to the hosted
-    // checkout. Otherwise fall back to the simulated demo flow.
+    // checkout. Otherwise complete the simulated demo payment flow.
     if (payfastIsConfigured()) {
       const checkout = buildPayFastCheckout({
         mPaymentId: orderNumber,
@@ -92,6 +92,16 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, paymentId, checkout })
     }
+
+    await prisma.payment.update({
+      where: { reference: paymentId },
+      data: { status: "PAID" },
+    })
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: "PAID", status: "PAID" },
+    })
 
     return NextResponse.json({
       success: true,

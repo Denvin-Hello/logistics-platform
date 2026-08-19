@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { SignOutButton } from "@/components/auth/sign-out-button"
 import {
   LayoutDashboard,
   Users,
@@ -56,6 +57,10 @@ export function AdminSidebar() {
           )
         })}
       </nav>
+
+      <div className="border-t p-4">
+        <SignOutButton />
+      </div>
     </div>
   )
 }

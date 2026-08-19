@@ -69,9 +69,9 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <PackageOpen className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-xl font-semibold">No deliveries assigned yet</h3>
+        <h3 className="text-xl font-semibold">No active deliveries</h3>
         <p className="text-muted-foreground max-w-md mt-2">
-          When customers pay for orders, they'll be assigned to you here.
+          Accept new orders from the Available Deliveries section above to get started.
         </p>
       </div>
     )

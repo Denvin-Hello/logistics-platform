@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { ProviderSidebar } from "@/components/provider/provider-sidebar"
 import { OrdersGrid } from "@/components/provider/orders-grid"
+import { AvailableOrders } from "@/components/provider/available-orders"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, DollarSign, Clock, CheckCircle2 } from "lucide-react"
 import { formatRands } from "@/lib/format"
@@ -24,6 +25,22 @@ export default async function ProviderDashboard() {
     pickupAddress: o.pickupAddress,
     deliveryAddress: o.deliveryAddress,
     status: o.status,
+    amount: o.amount,
+    packageType: o.packageType,
+    createdAt: o.createdAt.toISOString(),
+  }))
+
+  const availableOrders = await prisma.order.findMany({
+    where: { status: "PAID", assignedProviderId: null },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const available = availableOrders.map((o) => ({
+    id: o.id,
+    orderNumber: o.orderNumber,
+    customerName: o.customerName,
+    pickupAddress: o.pickupAddress,
+    deliveryAddress: o.deliveryAddress,
     amount: o.amount,
     packageType: o.packageType,
     createdAt: o.createdAt.toISOString(),
@@ -93,6 +110,19 @@ export default async function ProviderDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Available Deliveries</h2>
+                <p className="text-sm text-muted-foreground">
+                  Customer orders waiting to be accepted. Accept one to claim it.
+                </p>
+              </div>
+            </div>
+
+            <AvailableOrders orders={available} />
+          </section>
 
           <section>
             <div className="flex items-center justify-between mb-6">

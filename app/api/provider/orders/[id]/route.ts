@@ -39,15 +39,46 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Order not found." }, { status: 404 })
     }
 
+    if (parsed.data.action === "accept") {
+      if (order.assignedProviderId === session.user.id) {
+        if (order.status !== "ASSIGNED" && order.status !== "PENDING") {
+          return NextResponse.json({ error: "This delivery can no longer be accepted." }, { status: 409 })
+        }
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          data: { status: "IN_TRANSIT" },
+        })
+        return NextResponse.json({ ok: true, status: updated.status })
+      }
+
+      if (order.assignedProviderId === null && (order.status === "PENDING" || order.status === "PAID")) {
+        const claimed = await prisma.order.updateMany({
+          where: { id: order.id, assignedProviderId: null, status: { in: ["PENDING", "PAID"] } },
+          data: { assignedProviderId: session.user.id, status: "IN_TRANSIT" },
+        })
+        if (claimed.count === 0) {
+          return NextResponse.json(
+            { error: "This delivery has already been accepted by another provider." },
+            { status: 409 },
+          )
+        }
+        return NextResponse.json({ ok: true, status: "IN_TRANSIT" })
+      }
+
+      return NextResponse.json({ error: "This order is not available to accept." }, { status: 403 })
+    }
+
     if (order.assignedProviderId !== session.user.id) {
       return NextResponse.json({ error: "This order is not assigned to you." }, { status: 403 })
     }
 
-    const status = parsed.data.action === "accept" ? "IN_TRANSIT" : "DELIVERED"
+    if (order.status !== "IN_TRANSIT") {
+      return NextResponse.json({ error: "This delivery cannot be marked as delivered yet." }, { status: 409 })
+    }
 
     const updated = await prisma.order.update({
       where: { id: order.id },
-      data: { status },
+      data: { status: "DELIVERED" },
     })
 
     return NextResponse.json({ ok: true, status: updated.status })

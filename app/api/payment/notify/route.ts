@@ -76,14 +76,11 @@ async function handleCompletedPayment(orderNumber: string, params: Record<string
     return
   }
 
-  const provider = await getAvailableProvider()
-
   await prisma.order.update({
     where: { id: order.id },
     data: {
       paymentStatus: "PAID",
-      status: provider ? "ASSIGNED" : "PAID",
-      assignedProvider: provider ? { connect: { id: provider.id } } : undefined,
+      status: "PAID",
     },
   })
 
@@ -103,11 +100,4 @@ async function handleCompletedPayment(orderNumber: string, params: Record<string
       },
     })
   }
-}
-
-async function getAvailableProvider() {
-  const provider = await prisma.user.findFirst({
-    where: { role: "PROVIDER", status: "APPROVED" },
-  })
-  return provider || null
 }
