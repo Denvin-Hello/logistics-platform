@@ -14,13 +14,13 @@ export default function AboutPage() {
         <div className="absolute inset-0 bg-[url('/abstract-logistics-network-lines.jpg')] opacity-10" />
         <div className="relative container mx-auto px-4 py-24 lg:py-32 text-center">
           <span className="inline-flex rounded-full bg-accent/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
-            About TDL CO
+            About LoggiConnect
           </span>
           <h1 className="mt-6 text-4xl lg:text-6xl font-bold text-primary-foreground text-balance">
             Built to move things, safely, on time.
           </h1>
           <p className="mt-6 text-xl text-primary-foreground/90 max-w-2xl mx-auto text-pretty">
-            TDL CO connects delivery providers with customers through one platform: real-time tracking, secure
+            LoggiConnect connects delivery providers with customers through one platform: real-time tracking, secure
             payments, and driver safety monitoring, all in one place.
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function AboutPage() {
               Logistics shouldn't mean choosing between speed and safety.
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground">
-              We built TDL CO because customers deserve to know exactly where their package is, providers deserve
+              We built LoggiConnect because customers deserve to know exactly where their package is, providers deserve
               fair, transparent work, and every driver deserves a platform that watches out for their wellbeing on
               the road, not just the delivery clock.
             </p>

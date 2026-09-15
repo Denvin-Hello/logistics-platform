@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, Truck } from "lucide-react"
+import Image from "next/image"
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,11 +22,15 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="bg-accent rounded-lg p-2">
-            <Truck className="h-6 w-6 text-accent-foreground" />
-          </div>
-          <span className="text-xl font-bold">{"TDL CO"}</span>
+        <Link href="/" className="flex items-center">
+        <Image
+        src="/logo.jpg"
+        alt="LoggiConnect"
+        width={100}
+        height={50}
+        className="w-[100px] h-auto object-contain"
+        priority
+      />
         </Link>
 
         {/* Desktop Navigation */}

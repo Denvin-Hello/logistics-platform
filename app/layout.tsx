@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import { Analytics } from '@vercel/analytics/next'
 import { ProviderToast } from '@/components/ui/provider-toast'
 import { DevRoleSwitcher } from '@/components/dev/role-switcher'
+import { Footer } from '@/components/layout/footer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -19,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased ${GeistSans.variable} ${GeistMono.variable}`}>
-        {children}
+        <div className="flex min-h-screen flex-col">
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </div>
         <ProviderToast />
         {process.env.NODE_ENV === "development" ? <DevRoleSwitcher /> : null}
         <Analytics />
