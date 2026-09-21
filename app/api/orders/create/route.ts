@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
+import { GOODS_CATEGORIES, getCategory, quoteFreight } from "@/lib/freight"
 import { z } from "zod"
 
 const orderDetailsSchema = z.object({
@@ -15,11 +16,14 @@ const orderDetailsSchema = z.object({
   deliveryName: z.string().min(1, "Delivery name is required"),
   deliveryPhone: z.string().min(1, "Delivery phone is required"),
   deliveryInstructions: z.string().default(""),
-  packageType: z.string().min(1, "Package type is required"),
-  weight: z.coerce.number().min(0).max(1000).default(0),
-  length: z.coerce.number().min(0).max(1000).default(0),
-  width: z.coerce.number().min(0).max(1000).default(0),
-  height: z.coerce.number().min(0).max(1000).default(0),
+  packageType: z
+    .string()
+    .min(1, "Package type is required")
+    .refine((v) => GOODS_CATEGORIES.some((c) => c.value === v.trim().toLowerCase()), "Unknown package type"),
+  weight: z.coerce.number().min(0).max(8000).default(0),
+  length: z.coerce.number().min(0).max(2200).default(0),
+  width: z.coerce.number().min(0).max(260).default(0),
+  height: z.coerce.number().min(0).max(430).default(0),
   packageDescription: z.string().default(""),
   fragile: z.coerce.boolean().default(false),
   insurance: z.coerce.boolean().default(false),
@@ -28,14 +32,17 @@ const orderDetailsSchema = z.object({
 })
 
 function calculateOrderAmount(details: z.infer<typeof orderDetailsSchema>) {
-  const baseFee = 120
-  const volumeSurcharge = details.length + details.width + details.height > 120 ? 20 : 0
-  const fragileFee = details.fragile ? 30 : 0
-  const insuranceFee = details.insurance ? 25 : 0
-  const signatureFee = details.signatureRequired ? 10 : 0
-  const weightFee = Math.max(0, details.weight - 1) * 15
-
-  return Math.max(100, baseFee + weightFee + volumeSurcharge + fragileFee + insuranceFee + signatureFee)
+  const quote = quoteFreight({
+    packageType: details.packageType,
+    weightKg: details.weight,
+    lengthCm: details.length,
+    widthCm: details.width,
+    heightCm: details.height,
+    fragile: details.fragile,
+    insurance: details.insurance,
+    signatureRequired: details.signatureRequired,
+  })
+  return quote.amount
 }
 
 export async function POST(request: NextRequest) {
@@ -66,8 +73,24 @@ export async function POST(request: NextRequest) {
     }
 
     const details = parsed.data
+    const quote = quoteFreight({
+      packageType: details.packageType,
+      weightKg: details.weight,
+      lengthCm: details.length,
+      widthCm: details.width,
+      heightCm: details.height,
+      fragile: details.fragile,
+      insurance: details.insurance,
+      signatureRequired: details.signatureRequired,
+    })
+    if (quote.blocked) {
+      return NextResponse.json({ error: quote.blockReason }, { status: 400 })
+    }
+    // Vehicle max (Y) is the dependent variable: smallest capable class for
+    // the goods vector X, with the category mean blended in (law of averages).
+    const category = getCategory(details.packageType)
     const orderNumber = `ORD${randomUUID().slice(0, 12).toUpperCase()}`
-    const amount = calculateOrderAmount(details)
+    const amount = quote.amount
 
     const order = await prisma.order.create({
       data: {
@@ -108,6 +131,17 @@ export async function POST(request: NextRequest) {
         description: order.description,
         customerEmail: order.customerEmail,
         customerName: order.customerName,
+      },
+      quote: {
+        category: category.label,
+        actualKg: quote.actualKg,
+        volumetricKg: Math.round(quote.volumetricKg * 10) / 10,
+        chargeableKg: Math.round(quote.chargeableKg * 10) / 10,
+        blendedKg: Math.round(quote.blendedKg * 10) / 10,
+        requiredKg: Math.round(quote.requiredKg * 10) / 10,
+        vehicle: quote.vehicle.label,
+        vehicleCode: quote.vehicle.code,
+        breakdown: quote.breakdown,
       },
     })
   } catch (error) {

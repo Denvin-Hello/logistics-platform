@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { PayFastForm } from "@/components/payment/payfast-form"
+import { GOODS_CATEGORIES, quoteFreight } from "@/lib/freight"
 import { MapPin, Package, Clock, DollarSign, Truck } from "lucide-react"
 
 interface OrderDetails {
@@ -60,7 +61,7 @@ export function OrderForm() {
     deliveryPhone: "",
     deliveryAddress: "",
     deliveryInstructions: "",
-    packageType: "documents",
+    packageType: "small_parcel",
     weight: "1",
     length: "0",
     width: "0",
@@ -70,6 +71,23 @@ export function OrderForm() {
     insurance: false,
     signature: false,
   })
+
+  const liveQuote = useMemo(() => {
+    try {
+      return quoteFreight({
+        packageType: formData.packageType,
+        weightKg: Number(formData.weight) || 0,
+        lengthCm: Number(formData.length) || 0,
+        widthCm: Number(formData.width) || 0,
+        heightCm: Number(formData.height) || 0,
+        fragile: formData.fragile,
+        insurance: formData.insurance,
+        signatureRequired: formData.signature,
+      })
+    } catch {
+      return null
+    }
+  }, [formData.packageType, formData.weight, formData.length, formData.width, formData.height, formData.fragile, formData.insurance, formData.signature])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,6 +120,7 @@ export function OrderForm() {
             packageDescription: formData.packageDescription,
             fragile: formData.fragile,
             insurance: formData.insurance,
+            signatureRequired: formData.signature,
             signature: formData.signature,
           },
         }),
@@ -320,13 +339,19 @@ export function OrderForm() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select package type" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="documents">Documents</SelectItem>
-                        <SelectItem value="electronics">Electronics</SelectItem>
-                        <SelectItem value="clothing">Clothing</SelectItem>
-                        <SelectItem value="food">Food Items</SelectItem>
-                        <SelectItem value="fragile">Fragile Items</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                      <SelectContent className="max-h-80">
+                        {["Documents & small items", "Household & bulky", "Food & perishables", "Fragile & special handling", "Restricted"].map((group) => (
+                          <div key={group}>
+                            <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              {group}
+                            </div>
+                            {GOODS_CATEGORIES.filter((c) => c.group === group).map((c) => (
+                              <SelectItem key={c.value} value={c.value} title={`${c.description} — e.g. ${c.examples}`}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -417,8 +442,8 @@ export function OrderForm() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-              {isLoading ? "Processing Order..." : "Proceed to Payment"}
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading || !!liveQuote?.blocked}>
+              {liveQuote?.blocked ? "Restricted goods — contact support" : isLoading ? "Processing Order..." : "Proceed to Payment"}
             </Button>
           </form>
         </div>
@@ -432,30 +457,50 @@ export function OrderForm() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {liveQuote ? (
+                <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
+                  <p className="text-sm font-semibold">How your goods are calculated</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Actual weight</span>
+                    <span>{liveQuote.actualKg.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Volumetric (L×W×H ÷ 5000)</span>
+                    <span>{liveQuote.volumetricKg.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Chargeable (heavier wins)</span>
+                    <span>{liveQuote.chargeableKg.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Category average ({liveQuote.category.label})</span>
+                    <span>{liveQuote.category.meanKg.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Blended need (law of averages)</span>
+                    <span>{liveQuote.blendedKg.toFixed(1)} kg → needs {liveQuote.requiredKg.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Vehicle needed</span>
+                    <span className="font-semibold">{liveQuote.vehicle.label}</span>
+                  </div>
+                  {liveQuote.blocked ? (
+                    <p className="text-sm text-destructive">{liveQuote.blockReason}</p>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Base delivery fee</span>
-                  <span>R120</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Distance surcharge</span>
-                  <span>R0</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Fragile fee</span>
-                  <span>{formData.fragile ? "R30" : "R0"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Insurance</span>
-                  <span>{formData.insurance ? "R25" : "R0"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Signature required</span>
-                  <span>{formData.signature ? "R10" : "R0"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Estimated weight surcharge</span>
-                  <span>Calculated at checkout</span>
+                {liveQuote
+                  ? liveQuote.breakdown.map((b) => (
+                      <div key={b.label} className="flex justify-between text-sm gap-4">
+                        <span className="text-muted-foreground">{b.label}</span>
+                        <span>R{b.amount}</span>
+                      </div>
+                    ))
+                  : null}
+                <div className="flex justify-between text-sm font-semibold border-t pt-2">
+                  <span>Estimated total</span>
+                  <span>{liveQuote ? `R${liveQuote.amount}` : "—"}</span>
                 </div>
               </div>
               <div className="rounded-lg bg-muted/50 p-4">

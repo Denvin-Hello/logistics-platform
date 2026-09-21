@@ -130,7 +130,8 @@ model SupportTicket {
   user      User?    @relation(fields: [userId], references: [id])
   userId    String?
   createdAt DateTime @default(now())
-
+  inboundEmails InboundEmail[]
+  
   @@index([userId])
   @@index([status])
 }
@@ -141,4 +142,21 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
   @@unique([identifier, token])
+}
+
+model InboundEmail {
+  id              String         @id @default(cuid())
+  resendId        String         @unique
+  from            String
+  to              String
+  subject         String
+  html            String?
+  text            String?
+  processed       Boolean        @default(false)
+  supportTicket   SupportTicket? @relation(fields: [supportTicketId], references: [id])
+  supportTicketId String?
+  createdAt       DateTime       @default(now())
+
+  @@index([from])
+  @@index([processed])
 }

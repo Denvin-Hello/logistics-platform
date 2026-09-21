@@ -1,23 +1,30 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import dotenv from "dotenv";
-dotenv.config();
+
+dotenv.config({ path: ".env.local" });
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function main() {
-  // nodemailer accepts your SMTP URL from process.env
-  const transporter = nodemailer.createTransport(process.env.EMAIL_SERVER);
-
-  const info = await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
-    to: "ramsiladenvin@gmail.com",
-    subject: "SMTP test — MailerSend",
-    text: "SMTP test to MailerSend: if you see this in your inbox, it works.",
-    html: "<p>SMTP test to MailerSend: <strong>if you see this in your inbox, it works.</strong></p>",
+  const { data, error } = await resend.emails.send({
+    from:"LoggiConnect <hello@loggiconnect.co.za>",
+    to: ["ramsiladenvin@gmail.com"],
+    subject: "LogiConnect - Resend Test",
+    html: `
+      <h2>Resend is working!</h2>
+      <p>This is a test email from the LogiConnect project.</p>
+      <p>If you received this, the Resend integration is working correctly.</p>
+    `,
   });
 
-  console.log("Sent message id:", info.messageId || info);
+  if (error) {
+    console.error("Email failed:");
+    console.error(error);
+    process.exit(1);
+  }
+
+  console.log("Email sent successfully!");
+  console.log("Message ID:", data?.id);
 }
 
-main().catch(err => {
-  console.error("Failed to send:", err);
-  process.exit(1);
-});
+main();
