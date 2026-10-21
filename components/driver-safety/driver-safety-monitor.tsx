@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Script from "next/script"
+import { formatTime } from "@/lib/format"
 
 const LEFT_EYE = [362, 385, 387, 263, 373, 380]
 const RIGHT_EYE = [33, 160, 158, 133, 153, 144]
@@ -139,7 +140,7 @@ export function DriverSafetyMonitor() {
 
   function addAlert(message: string) {
     setAlertLog((current) => [
-      `${new Date().toLocaleTimeString()} — ${message}`,
+      `${formatTime(new Date())} — ${message}`,
       ...current,
     ].slice(0, 6))
   }

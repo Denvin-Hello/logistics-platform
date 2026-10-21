@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import type * as L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatTime } from "@/lib/format"
 import { Crosshair, MapPin, Play, Square } from "lucide-react"
 
 const JOBURG: [number, number] = [-26.2041, 28.0473]
@@ -36,14 +38,11 @@ const destIcon = (L: typeof import("leaflet"), color: string, glyph: string) =>
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
-      { headers: { Accept: "application/json" } },
-    )
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(address)}`)
     if (!res.ok) return null
     const data = await res.json()
-    if (!Array.isArray(data) || data.length === 0) return null
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    if (typeof data?.lat !== "number" || typeof data?.lng !== "number") return null
+    return { lat: data.lat, lng: data.lng }
   } catch {
     return null
   }
@@ -66,16 +65,16 @@ export function LiveTrackingPanel({ orders }: { orders: ActiveOrder[] }) {
 
   const selectedOrder = orders.find((o) => o.id === selectedId)
 
-  async function sendLocation(orderId: string, lat: number, lng: number) {
+  async function sendLocation(orderId: string, lat: number, lng: number, accuracy?: number) {
     try {
       const res = await fetch("/api/tracking/location", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, lat, lng }),
+        body: JSON.stringify({ orderId, lat, lng, accuracy }),
       })
       if (res.ok) {
         lastSentRef.current = Date.now()
-        setLastSent(new Date().toLocaleTimeString())
+        setLastSent(formatTime(new Date()))
       }
     } catch {
       // ignore transient failures; next update will retry
@@ -96,7 +95,7 @@ export function LiveTrackingPanel({ orders }: { orders: ActiveOrder[] }) {
 
     navigator.geolocation.getCurrentPosition(
       (first) => {
-        sendLocation(selectedId, first.coords.latitude, first.coords.longitude)
+        sendLocation(selectedId, first.coords.latitude, first.coords.longitude, first.coords.accuracy)
         setPosition({ lat: first.coords.latitude, lng: first.coords.longitude })
       },
       (err) => setError(`Could not get GPS position: ${err.message}`),
@@ -108,7 +107,7 @@ export function LiveTrackingPanel({ orders }: { orders: ActiveOrder[] }) {
         const { latitude, longitude } = pos.coords
         setPosition({ lat: latitude, lng: longitude })
         if (Date.now() - lastSentRef.current >= 5000) {
-          sendLocation(selectedId, latitude, longitude)
+          sendLocation(selectedId, latitude, longitude, pos.coords.accuracy)
         }
       },
       (err) => setError(`GPS lost: ${err.message}`),
@@ -279,6 +278,13 @@ export function LiveTrackingPanel({ orders }: { orders: ActiveOrder[] }) {
               <span className="font-medium">To:</span>
               <p className="text-muted-foreground">{selectedOrder?.deliveryAddress ?? "—"}</p>
             </div>
+            {selectedOrder?.id ? (
+              <Button asChild variant="outline" className="w-full">
+                <Link href={`/provider/deliveries/${selectedOrder.id}`}>
+                  {selectedOrder.status === "IN_TRANSIT" ? "Open trip map" : "Open trip"}
+                </Link>
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       </div>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
+import { formatDate } from "@/lib/format"
 import { Loader2, MapPin, Package, DollarSign, PackageOpen, Clock } from "lucide-react"
 
 export interface AvailableOrder {
@@ -15,6 +16,7 @@ export interface AvailableOrder {
   pickupAddress: string
   deliveryAddress: string
   amount: number
+  baseAmount?: number | null
   packageType: string
   createdAt: string
 }
@@ -23,13 +25,13 @@ export function AvailableOrders({ orders }: { orders: AvailableOrder[] }) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  const accept = async (order: AvailableOrder) => {
+  const act = async (order: AvailableOrder, action: "accept" | "decline") => {
     setBusyId(order.id)
     try {
       const res = await fetch(`/api/provider/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "accept" }),
+        body: JSON.stringify({ action }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -37,12 +39,15 @@ export function AvailableOrders({ orders }: { orders: AvailableOrder[] }) {
         return
       }
       toast({
-        title: "Delivery accepted",
-        description: `${order.orderNumber} is now in transit and assigned to you.`,
+        title: action === "accept" ? "Delivery accepted" : "Delivery declined",
+        description:
+          action === "accept"
+            ? `${order.orderNumber} is now assigned to you. Start the trip when you pick it up.`
+            : `${order.orderNumber} was returned to the pool.`,
       })
       router.refresh()
     } catch {
-      toast({ title: "Action failed", description: "Unable to accept the delivery. Try again." })
+      toast({ title: "Action failed", description: "Unable to update the delivery. Try again." })
     } finally {
       setBusyId(null)
     }
@@ -99,14 +104,30 @@ export function AvailableOrders({ orders }: { orders: AvailableOrder[] }) {
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                <span>{formatDate(order.createdAt)}</span>
               </div>
             </div>
 
-            <Button size="sm" className="w-full" disabled={busyId === order.id} onClick={() => void accept(order)}>
-              {busyId === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Accept Delivery
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1"
+                disabled={busyId === order.id}
+                onClick={() => void act(order, "accept")}
+              >
+                {busyId === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Accept Delivery
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 bg-transparent text-red-600 hover:text-red-700"
+                disabled={busyId === order.id}
+                onClick={() => void act(order, "decline")}
+              >
+                Decline
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ))}

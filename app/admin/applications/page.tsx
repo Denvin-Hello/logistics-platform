@@ -9,7 +9,18 @@ export default async function AdminApplicationsPage() {
   const pendingProviders = await prisma.user.findMany({
     where: { role: "PROVIDER", status: "PENDING" },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, email: true, businessName: true, createdAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      businessName: true,
+      phone: true,
+      serviceArea: true,
+      vehicleType: true,
+      vehicleCapacityKg: true,
+      yearsExperience: true,
+      createdAt: true,
+    },
   })
 
   const providers = pendingProviders.map((p) => ({

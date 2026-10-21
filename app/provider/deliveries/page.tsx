@@ -26,7 +26,7 @@ export default async function ProviderDeliveriesPage() {
     createdAt: o.createdAt.toISOString(),
   }))
 
-  const activeOrders = providerOrders.filter((o) => o.status !== "DELIVERED")
+  const activeOrders = providerOrders.filter((o) => o.status !== "PAID" && o.status !== "DELIVERED")
 
   return (
     <div className="flex min-h-screen bg-background">

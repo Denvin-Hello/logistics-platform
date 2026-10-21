@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { LifeBuoy } from "lucide-react"
 import { SupportTicketActions } from "@/components/admin/support-ticket-actions"
+import { formatDateTime } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
@@ -91,7 +92,7 @@ export default async function AdminSupportPage() {
                       <div className="flex flex-col items-end gap-2">
                         <Badge className={getStatusColor(ticket.status)}>{ticket.status}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          {ticket.createdAt.toLocaleString()}
+                          {formatDateTime(ticket.createdAt)}
                         </span>
                         <SupportTicketActions ticketId={ticket.id} status={ticket.status} />
                       </div>

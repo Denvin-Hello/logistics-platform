@@ -9,6 +9,11 @@ const signupSchema = z.object({
   name: z.string().min(1, "Please enter your name.").max(120),
   role: z.enum(["customer", "provider"]).default("customer"),
   businessName: z.string().max(160).optional(),
+  phone: z.string().max(50).optional(),
+  serviceArea: z.string().max(160).optional(),
+  vehicleType: z.string().max(120).optional(),
+  vehicleCapacityKg: z.coerce.number().int().min(0).max(50000).optional(),
+  yearsExperience: z.coerce.number().int().min(0).max(80).optional(),
 })
 
 export async function POST(req: Request) {
@@ -29,7 +34,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid request." }, { status: 400 })
     }
 
-    const { email, name, role, businessName } = parsed.data
+    const {
+      email,
+      name,
+      role,
+      businessName,
+      phone,
+      serviceArea,
+      vehicleType,
+      vehicleCapacityKg,
+      yearsExperience,
+    } = parsed.data
     const normalizedEmail = email.trim().toLowerCase()
     const isProvider = role === "provider"
 
@@ -52,6 +67,11 @@ export async function POST(req: Request) {
           role: isProvider ? "PROVIDER" : "CUSTOMER",
           status: isProvider ? "PENDING" : "APPROVED",
           businessName: isProvider ? (businessName || "").trim() || null : null,
+          phone: isProvider ? (phone || "").trim() || null : null,
+          serviceArea: isProvider ? (serviceArea || "").trim() || null : null,
+          vehicleType: isProvider ? (vehicleType || "").trim() || null : null,
+          vehicleCapacityKg: isProvider ? (vehicleCapacityKg ?? null) : null,
+          yearsExperience: isProvider ? (yearsExperience ?? null) : null,
         },
       })
     } catch (err: unknown) {
@@ -63,13 +83,22 @@ export async function POST(req: Request) {
     }
 
     if (isProvider) {
-      void sendProviderSignupNotification({
-        name: name.trim(),
-        businessName: (businessName || "").trim() || null,
-        email: normalizedEmail,
-      }).catch((err) => {
+      try {
+        await sendProviderSignupNotification({
+          name: name.trim(),
+          businessName: (businessName || "").trim() || null,
+          email: normalizedEmail,
+          phone: (phone || "").trim() || null,
+          serviceArea: (serviceArea || "").trim() || null,
+          vehicleType: (vehicleType || "").trim() || null,
+          vehicleCapacityKg: vehicleCapacityKg ?? null,
+          yearsExperience: yearsExperience ?? null,
+        })
+      } catch (err) {
+        // The application is safely stored; a failed notification must not
+        // reject the signup. Admins also see it in the dashboard.
         console.error("Provider notification email failed:", err)
-      })
+      }
     }
 
     return NextResponse.json({ ok: true })

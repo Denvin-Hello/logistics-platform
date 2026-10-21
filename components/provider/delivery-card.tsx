@@ -9,23 +9,29 @@ interface DeliveryCardProps {
     customerName: string
     pickupAddress: string
     deliveryAddress: string
-    status: "pending" | "in-transit" | "delivered"
+    status: "pending" | "assigned" | "in-transit" | "awaiting-payment" | "delivered"
     amount: number
     estimatedTime: string
     packageType: string
   }
   onAccept?: () => void
-  onMarkDelivered?: () => void
+  onStart?: () => void
+  onOpenTrip?: () => void
+  onMarkPaid?: () => void
   onViewDetails: () => void
 }
 
-export function DeliveryCard({ delivery, onAccept, onMarkDelivered, onViewDetails }: DeliveryCardProps) {
+export function DeliveryCard({ delivery, onAccept, onStart, onOpenTrip, onMarkPaid, onViewDetails }: DeliveryCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+      case "assigned":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
       case "in-transit":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+      case "awaiting-payment":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
       case "delivered":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
       default:
@@ -81,9 +87,19 @@ export function DeliveryCard({ delivery, onAccept, onMarkDelivered, onViewDetail
               Accept Delivery
             </Button>
           ) : null}
-          {delivery.status === "in-transit" && onMarkDelivered ? (
-            <Button size="sm" className="flex-1" onClick={onMarkDelivered}>
-              Mark Delivered
+          {delivery.status === "assigned" && onStart ? (
+            <Button size="sm" className="flex-1" onClick={onStart}>
+              Start Trip
+            </Button>
+          ) : null}
+          {delivery.status === "in-transit" && onOpenTrip ? (
+            <Button size="sm" className="flex-1" onClick={onOpenTrip}>
+              Open Trip
+            </Button>
+          ) : null}
+          {delivery.status === "awaiting-payment" && onMarkPaid ? (
+            <Button size="sm" className="flex-1" onClick={onMarkPaid}>
+              Record Payment
             </Button>
           ) : null}
           <Button size="sm" variant="outline" className="flex-1 bg-transparent" onClick={onViewDetails}>

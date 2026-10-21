@@ -67,27 +67,34 @@ async function handleCompletedPayment(orderNumber: string, params: Record<string
 
   const reference = params.pf_payment_id || `pf_${orderNumber}`
 
-  // Idempotency: if this payment reference was already processed, do nothing.
-  const existingPayment = await prisma.payment.findFirst({
-    where: { orderId: order.id, reference },
-  })
+  // Idempotency: a repeat ITN must not double-settle or duplicate payments.
+  if (order.paymentStatus === "PAID") {
+    return
+  }
+
+  const existingPayment =
+    (await prisma.payment.findFirst({ where: { orderId: order.id, status: "PENDING" } })) ??
+    (await prisma.payment.findFirst({ where: { orderId: order.id, reference } }))
 
   if (existingPayment && existingPayment.status === "PAID") {
     return
   }
+
+  const paidAt = new Date()
 
   await prisma.order.update({
     where: { id: order.id },
     data: {
       paymentStatus: "PAID",
       status: "PAID",
+      paidAt,
     },
   })
 
   if (existingPayment) {
     await prisma.payment.update({
       where: { id: existingPayment.id },
-      data: { status: "PAID" },
+      data: { status: "PAID", reference, method: "payfast", paidAt },
     })
   } else {
     await prisma.payment.create({
@@ -97,6 +104,7 @@ async function handleCompletedPayment(orderNumber: string, params: Record<string
         method: "payfast",
         status: "PAID",
         reference,
+        paidAt,
       },
     })
   }

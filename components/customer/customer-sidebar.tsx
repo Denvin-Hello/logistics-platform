@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SignOutButton } from "@/components/auth/sign-out-button"
-import { LayoutDashboard, Package, Plus, MapPin, CreditCard, LifeBuoy } from "lucide-react"
+import { LayoutDashboard, Package, Plus, MapPin, CreditCard, LifeBuoy, Zap } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/customer", icon: LayoutDashboard },
+  { name: "Quick Request", href: "/customer/request", icon: Zap },
   { name: "New Order", href: "/customer/new-order", icon: Plus },
   { name: "My Orders", href: "/customer/orders", icon: Package },
   { name: "Track Package", href: "/customer/tracking", icon: MapPin },

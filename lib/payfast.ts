@@ -4,6 +4,22 @@ export function payfastIsConfigured() {
   return !!(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY)
 }
 
+export type PaymentsMode = "demo" | "payfast" | "cod_only"
+
+// Production must never simulate a successful payment. Without credentials the
+// safe default is cash/card on delivery.
+export function paymentsMode(): PaymentsMode {
+  const configured = payfastIsConfigured()
+  const raw = (process.env.PAYMENTS_MODE || "").toLowerCase()
+
+  if (raw === "cod_only") return "cod_only"
+  if (raw === "payfast") return configured ? "payfast" : "cod_only"
+  if (raw === "demo") return process.env.NODE_ENV === "production" ? "cod_only" : "demo"
+
+  if (configured) return "payfast"
+  return process.env.NODE_ENV === "production" ? "cod_only" : "demo"
+}
+
 export function payfastCheckoutUrl() {
   const hosted = process.env.PAYFAST_HOSTED_PAYMENTS
   const live = hosted === "1" || hosted === "true"

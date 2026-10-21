@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 export const dynamic = "force-dynamic"
 
 const PAGE_SIZE = 10
-const STATUSES = ["ALL", "PENDING", "AWAITING_PAYMENT", "PAID", "ASSIGNED", "IN_TRANSIT", "DELIVERED", "CANCELLED"]
+const STATUSES = ["ALL", "PRICE_AGREED", "PENDING", "ASSIGNED", "IN_TRANSIT", "AWAITING_PAYMENT", "PAID", "DELIVERED", "CANCELLED"]
 
 type SearchParams = { q?: string; status?: string; page?: string }
 

@@ -3,7 +3,8 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { StatsCards } from "@/components/admin/stats-cards"
 import { OrdersTable } from "@/components/admin/orders-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, Clock } from "lucide-react"
+import { CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { paymentsMode } from "@/lib/payfast"
 
 export const dynamic = "force-dynamic"
 
@@ -17,29 +18,40 @@ export default async function AdminDashboard() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
-  const [totalOrders, totalCustomers, totalProviders, revenueAgg, recentOrders, thisMonthOrders, lastMonthOrders] =
-    await Promise.all([
-      prisma.order.count(),
-      prisma.user.count({ where: { role: "CUSTOMER" } }),
-      prisma.user.count({ where: { role: "PROVIDER" } }),
-      prisma.order.aggregate({ _sum: { amount: true } }),
-      prisma.order.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 8,
-        include: { assignedProvider: { select: { businessName: true, name: true } } },
-      }),
-      prisma.order.count({ where: { createdAt: { gte: monthStart } } }),
-      prisma.order.count({
-        where: { createdAt: { gte: lastMonthStart, lt: monthStart } },
-      }),
-    ])
+  const [
+    totalOrders,
+    totalCustomers,
+    totalProviders,
+    revenueAgg,
+    recentOrders,
+    thisMonthOrders,
+    lastMonthOrders,
+    pendingApplications,
+    lastMonthRevenueAgg,
+  ] = await Promise.all([
+    prisma.order.count(),
+    prisma.user.count({ where: { role: "CUSTOMER" } }),
+    prisma.user.count({ where: { role: "PROVIDER" } }),
+    // Revenue is money actually collected, not the value of every order placed.
+    prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { amount: true } }),
+    prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: { assignedProvider: { select: { businessName: true, name: true } } },
+    }),
+    prisma.order.count({ where: { createdAt: { gte: monthStart } } }),
+    prisma.order.count({
+      where: { createdAt: { gte: lastMonthStart, lt: monthStart } },
+    }),
+    prisma.user.count({ where: { role: "PROVIDER", status: "PENDING" } }),
+    prisma.order.aggregate({
+      where: { paymentStatus: "PAID", createdAt: { gte: lastMonthStart, lt: monthStart } },
+      _sum: { amount: true },
+    }),
+  ])
 
   const revenue = revenueAgg._sum.amount ?? 0
-
-  const lastMonthOrdersSum = await prisma.order.aggregate({
-    where: { createdAt: { gte: lastMonthStart, lt: monthStart } },
-    _sum: { amount: true },
-  })
+  const mode = paymentsMode()
 
   const mockStats = {
     totalOrders,
@@ -49,7 +61,7 @@ export default async function AdminDashboard() {
     ordersChange: pctChange(thisMonthOrders, lastMonthOrders),
     customersChange: 0,
     providersChange: 0,
-    revenueChange: pctChange(revenue, lastMonthOrdersSum._sum.amount ?? 0),
+    revenueChange: pctChange(revenue, lastMonthRevenueAgg._sum.amount ?? 0),
   }
 
   const mappedOrders = recentOrders.map((o) => ({
@@ -96,22 +108,41 @@ export default async function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Payment Gateway</span>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Operational</span>
+                    {mode === "cod_only" ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : mode === "demo" ? (
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    )}
+                    <span className={`text-sm ${mode === "demo" ? "text-yellow-600" : "text-green-600"}`}>
+                      {mode === "cod_only" ? "Cash / card on delivery" : mode === "demo" ? "Demo mode" : "PayFast online"}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Pending applications</span>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm text-yellow-600">Review queue</span>
+                    <span className="text-sm text-yellow-600">{pendingApplications} to review</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Email Service</span>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Operational</span>
+                    {process.env.RESEND_API_KEY || process.env.EMAIL_SERVER ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm text-green-600">
+                          {process.env.RESEND_API_KEY ? "Resend" : "SMTP"}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <span className="text-sm text-red-600">Not configured</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>

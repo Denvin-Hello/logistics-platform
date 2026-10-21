@@ -18,10 +18,10 @@ export default async function ProviderRoutesPage() {
     orderBy: { createdAt: "asc" },
   })
 
-  const openRoutes = orders.filter((o) => o.status !== "DELIVERED").length
+  const openRoutes = orders.filter((o) => o.status !== "PAID" && o.status !== "DELIVERED").length
   const pendingStops = orders.filter((o) => o.status === "ASSIGNED").length
   const inTransit = orders.filter((o) => o.status === "IN_TRANSIT").length
-  const nextStop = orders.find((o) => o.status !== "DELIVERED")
+  const nextStop = orders.find((o) => o.status !== "PAID" && o.status !== "DELIVERED")
 
   return (
     <div className="flex min-h-screen bg-background">

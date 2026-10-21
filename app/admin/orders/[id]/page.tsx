@@ -1,13 +1,15 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { formatRands } from "@/lib/format"
+import { formatDateTime, formatRands } from "@/lib/format"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { orderStatusColor, orderStatusLabel, ORDER_STATUS } from "@/lib/order-status"
+import { OrderDeliveryOverride } from "@/components/admin/order-delivery-override"
 
 export const dynamic = "force-dynamic"
 
@@ -29,22 +31,6 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     return <div className="p-8">Order not found.</div>
   }
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "DELIVERED":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-      case "IN_TRANSIT":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-      case "PENDING":
-      case "AWAITING_PAYMENT":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "CANCELLED":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-    }
-  }
-
   return (
     <div className="flex min-h-screen bg-background">
       <AdminSidebar />
@@ -58,7 +44,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Order {order.orderNumber}</h1>
-            <p className="text-muted-foreground">Placed {order.createdAt.toLocaleString()}</p>
+            <p className="text-muted-foreground">Placed {formatDateTime(order.createdAt)}</p>
           </div>
         </div>
 
@@ -81,7 +67,7 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge className={statusColor(order.status)}>{order.status.replace("_", " ")}</Badge>
+                <Badge className={orderStatusColor(order.status)}>{orderStatusLabel(order.status)}</Badge>
                 <Badge variant="outline">Payment: {order.paymentStatus}</Badge>
               </div>
               {order.assignedProvider ? (
@@ -137,6 +123,29 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               {order.insurance ? "Insured · " : ""}
               {order.signatureRequired ? "Signature required" : ""}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Dispatch actions</CardTitle>
+            <CardDescription>
+              Complete the delivery manually only when the provider cannot verify arrival.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {order.status === ORDER_STATUS.ASSIGNED || order.status === ORDER_STATUS.IN_TRANSIT ? (
+              <OrderDeliveryOverride orderId={order.id} orderNumber={order.orderNumber} />
+            ) : (
+              <p className="text-sm text-muted-foreground">This delivery is no longer active.</p>
+            )}
+            {order.deliveryOverrideAt ? (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-medium">Completed by dispatch override</p>
+                <p>{formatDateTime(order.deliveryOverrideAt)}</p>
+                <p className="mt-1">Reason: {order.deliveryOverrideReason || "—"}</p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

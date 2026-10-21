@@ -6,29 +6,11 @@ import { CustomerSidebar } from "@/components/customer/customer-sidebar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Package, Plus, MapPin, DollarSign, TrendingUp } from "lucide-react"
+import { Package, Plus, MapPin, DollarSign, TrendingUp, Zap } from "lucide-react"
 import { formatRands } from "@/lib/format"
+import { orderStatusColor, orderStatusLabel } from "@/lib/order-status"
 
 export const dynamic = "force-dynamic"
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "PENDING":
-    case "AWAITING_PAYMENT":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-    case "PAID":
-    case "ASSIGNED":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-    case "IN_TRANSIT":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-    case "DELIVERED":
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-    default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-  }
-}
-
-const statusLabel = (status: string) => status.replace("_", " ").toLowerCase()
 
 export default async function CustomerDashboard() {
   const session = await getServerSession(authOptions)
@@ -40,10 +22,10 @@ export default async function CustomerDashboard() {
   })
 
   const totalOrders = await prisma.order.count({ where: { customerId: session?.user?.id } })
-  const deliveredCount = orders.filter((o) => o.status === "DELIVERED").length
-  const activeCount = orders.filter((o) => o.status !== "DELIVERED").length
+  const deliveredCount = orders.filter((o) => o.status === "PAID" || o.status === "DELIVERED").length
+  const activeCount = orders.filter((o) => o.status !== "PAID" && o.status !== "DELIVERED").length
   const totalSpent = await prisma.order.aggregate({
-    where: { customerId: session?.user?.id },
+    where: { customerId: session?.user?.id, paymentStatus: "PAID" },
     _sum: { amount: true },
   })
 
@@ -59,6 +41,12 @@ export default async function CustomerDashboard() {
               <p className="text-muted-foreground">Welcome back, {session?.user?.name || "there"}</p>
             </div>
             <div className="flex items-center gap-4">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/customer/request">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Quick Request
+                </Link>
+              </Button>
               <Button asChild size="sm">
                 <Link href="/customer/new-order">
                   <Plus className="h-4 w-4 mr-2" />
@@ -108,7 +96,7 @@ export default async function CustomerDashboard() {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{orders.filter((o) => o.status !== "DELIVERED").length}</div>
+                <div className="text-2xl font-bold">{activeCount}</div>
                 <p className="text-xs text-muted-foreground">In progress</p>
               </CardContent>
             </Card>
@@ -194,9 +182,9 @@ export default async function CustomerDashboard() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="font-semibold">{formatRands(order.amount)}</p>
-                            <p className="text-sm text-muted-foreground">{statusLabel(order.status)}</p>
+                            <p className="text-sm text-muted-foreground">{orderStatusLabel(order.status)}</p>
                           </div>
-                          <Badge className={getStatusColor(order.status)}>{statusLabel(order.status)}</Badge>
+                          <Badge className={orderStatusColor(order.status)}>{orderStatusLabel(order.status)}</Badge>
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/customer/orders/${order.id}`}>View Details</Link>
                           </Button>

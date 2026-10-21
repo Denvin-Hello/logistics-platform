@@ -1,11 +1,15 @@
 import { Webhook } from "svix";
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const webhookSecret = process.env.RESEND_WEBHOOK_SECRET!;
-const prisma = new PrismaClient();
+const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
+  if (!webhookSecret) {
+    console.error("Resend webhook received but RESEND_WEBHOOK_SECRET is not configured.");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  }
+
   const payload = await req.text();
   const headers = {
     "svix-id": req.headers.get("svix-id")!,

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { formatRands } from "@/lib/format"
+import { orderStatusLabel } from "@/lib/order-status"
 import Link from "next/link"
 import React from "react"
 
@@ -29,7 +30,10 @@ export default async function CustomerOrdersPage() {
                 <div>
                   <div className="text-sm text-muted-foreground">{o.orderNumber}</div>
                   <div className="text-lg font-medium">{o.description || o.packageDescription}</div>
-                  <div className="text-sm text-gray-600">Status: {o.status || "PENDING"}</div>
+                  <div className="text-sm text-gray-600">
+                    Status: {orderStatusLabel(o.status)}
+                    {o.paymentStatus === "PAID" ? " · Paid" : ""}
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm">Amount: {formatRands(o.amount)}</div>

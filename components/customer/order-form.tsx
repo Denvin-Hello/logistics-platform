@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,16 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { PayFastForm } from "@/components/payment/payfast-form"
 import { GOODS_CATEGORIES, quoteFreight } from "@/lib/freight"
-import { MapPin, Package, Clock, DollarSign, Truck } from "lucide-react"
+import { MapPin, Package, Clock, DollarSign, Truck, CheckCircle2 } from "lucide-react"
 
 interface OrderDetails {
   orderId: string
   amount: number
   description: string
-  customerEmail: string
-  customerName: string
 }
 
 interface FormData {
@@ -46,7 +44,6 @@ interface FormData {
 
 export function OrderForm() {
   const [isLoading, setIsLoading] = useState(false)
-  const [showPayment, setShowPayment] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
 
@@ -136,11 +133,7 @@ export function OrderForm() {
         orderId: result.order.orderId,
         amount: result.order.amount,
         description: result.order.description,
-        customerEmail: result.order.customerEmail,
-        customerName: result.order.customerName,
       })
-
-      setShowPayment(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred while creating your order")
     } finally {
@@ -148,24 +141,42 @@ export function OrderForm() {
     }
   }
 
-  const handlePaymentSuccess = (paymentId: string) => {
-    console.log("Payment successful:", paymentId)
-    window.location.href = "/payment/success"
-  }
-
-  const handlePaymentError = (errorMessage: string) => {
-    console.error("Payment error:", errorMessage)
-    setError(errorMessage)
-    setShowPayment(false)
-  }
-
-  if (showPayment && orderDetails) {
+  if (orderDetails) {
     return (
-      <PayFastForm
-        orderDetails={orderDetails}
-        onPaymentSuccess={handlePaymentSuccess}
-        onPaymentError={handlePaymentError}
-      />
+      <div className="max-w-xl mx-auto p-6">
+        <Card>
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <CardTitle>Delivery requested</CardTitle>
+            <CardDescription>
+              Providers can now accept your delivery. You pay when it arrives.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4 text-center">
+              <p className="text-sm text-muted-foreground">Order number</p>
+              <p className="text-xl font-semibold tracking-wide">{orderDetails.orderId}</p>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Amount to pay on delivery</span>
+              <span className="font-semibold">R{orderDetails.amount}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Keep your order number and email address handy — you'll need both to track this delivery.
+            </p>
+            <div className="flex gap-3">
+              <Button asChild className="flex-1">
+                <Link href="/customer/orders">View my orders</Link>
+              </Button>
+              <Button asChild variant="outline" className="flex-1 bg-transparent">
+                <Link href="/customer/tracking">Track delivery</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -443,7 +454,11 @@ export function OrderForm() {
             </Card>
 
             <Button type="submit" className="w-full" size="lg" disabled={isLoading || !!liveQuote?.blocked}>
-              {liveQuote?.blocked ? "Restricted goods — contact support" : isLoading ? "Processing Order..." : "Proceed to Payment"}
+              {liveQuote?.blocked
+                ? "Restricted goods — contact support"
+                : isLoading
+                  ? "Submitting request..."
+                  : "Request Delivery — Pay on Delivery"}
             </Button>
           </form>
         </div>
@@ -504,7 +519,9 @@ export function OrderForm() {
                 </div>
               </div>
               <div className="rounded-lg bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">Order total will be calculated when you submit the request.</p>
+                <p className="text-sm text-muted-foreground">
+                  No payment is taken now. You pay the agreed amount when the delivery arrives.
+                </p>
               </div>
             </CardContent>
           </Card>

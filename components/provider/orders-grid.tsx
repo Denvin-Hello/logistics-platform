@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DeliveryCard } from "@/components/provider/delivery-card"
 import { toast } from "@/hooks/use-toast"
+import { formatDate } from "@/lib/format"
 import { Loader2, PackageOpen } from "lucide-react"
 
 export interface ProviderOrder {
@@ -20,19 +21,29 @@ export interface ProviderOrder {
   createdAt: string
 }
 
-type CardStatus = "pending" | "in-transit" | "delivered"
+type CardStatus = "pending" | "assigned" | "in-transit" | "awaiting-payment" | "delivered"
+type ProviderAction = "accept" | "start" | "mark_paid"
 
 function toCardStatus(status: string): CardStatus {
+  if (status === "ASSIGNED") return "assigned"
   if (status === "IN_TRANSIT") return "in-transit"
-  if (status === "DELIVERED") return "delivered"
+  if (status === "AWAITING_PAYMENT") return "awaiting-payment"
+  if (status === "PAID" || status === "DELIVERED") return "delivered"
   return "pending"
 }
 
 function statusLabel(status: string): string {
-  if (status === "IN_TRANSIT") return "In transit"
-  if (status === "DELIVERED") return "Completed"
   if (status === "ASSIGNED") return "Awaiting pickup"
-  return "Pending"
+  if (status === "IN_TRANSIT") return "In transit"
+  if (status === "AWAITING_PAYMENT") return "Delivered — payment due"
+  if (status === "PAID" || status === "DELIVERED") return "Completed"
+  return "Price agreed"
+}
+
+const ACTION_DONE: Record<ProviderAction, string> = {
+  accept: "accepted",
+  start: "started",
+  mark_paid: "recorded payment for",
 }
 
 export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
@@ -40,7 +51,7 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
   const [selected, setSelected] = useState<ProviderOrder | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  const runAction = async (order: ProviderOrder, action: "accept" | "deliver") => {
+  const runAction = async (order: ProviderOrder, action: ProviderAction) => {
     setBusyId(order.id)
     try {
       const res = await fetch(`/api/provider/orders/${order.id}`, {
@@ -54,9 +65,13 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
         return
       }
       toast({
-        title: action === "accept" ? "Delivery accepted" : "Delivery completed",
-        description: `${order.orderNumber} is now ${action === "accept" ? "in transit" : "delivered"}.`,
+        title: "Delivery updated",
+        description: `${order.orderNumber}: you ${ACTION_DONE[action]}.`,
       })
+      if (action === "start") {
+        router.push(`/provider/deliveries/${order.id}`)
+        return
+      }
       router.refresh()
     } catch {
       toast({ title: "Action failed", description: "Unable to update the order. Try again." })
@@ -93,20 +108,9 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
               estimatedTime: statusLabel(order.status),
               packageType: order.packageType,
             }}
-            onAccept={
-              order.status === "ASSIGNED"
-                ? () => {
-                    void runAction(order, "accept")
-                  }
-                : undefined
-            }
-            onMarkDelivered={
-              order.status === "IN_TRANSIT"
-                ? () => {
-                    void runAction(order, "deliver")
-                  }
-                : undefined
-            }
+            onStart={order.status === "ASSIGNED" ? () => void runAction(order, "start") : undefined}
+            onOpenTrip={order.status === "IN_TRANSIT" ? () => router.push(`/provider/deliveries/${order.id}`) : undefined}
+            onMarkPaid={order.status === "AWAITING_PAYMENT" ? () => void runAction(order, "mark_paid") : undefined}
             onViewDetails={() => setSelected(order)}
           />
         ))}
@@ -155,7 +159,7 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
                 </div>
                 <div className="rounded-3xl border border-border bg-card p-4">
                   <p className="text-sm text-muted-foreground">Placed</p>
-                  <p className="font-semibold">{new Date(selected.createdAt).toLocaleDateString()}</p>
+                  <p className="font-semibold">{formatDate(selected.createdAt)}</p>
                 </div>
               </div>
             </div>
@@ -165,21 +169,21 @@ export function OrdersGrid({ orders }: { orders: ProviderOrder[] }) {
               <Button variant="outline">Close</Button>
             </DialogClose>
             {selected?.status === "ASSIGNED" && (
-              <Button
-                disabled={busyId === selected.id}
-                onClick={() => selected && void runAction(selected, "accept")}
-              >
+              <Button disabled={busyId === selected.id} onClick={() => selected && void runAction(selected, "start")}>
                 {busyId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Accept Delivery
+                Start Trip
               </Button>
             )}
             {selected?.status === "IN_TRANSIT" && (
-              <Button
-                disabled={busyId === selected.id}
-                onClick={() => selected && void runAction(selected, "deliver")}
-              >
+              <Button disabled={busyId === selected.id} onClick={() => router.push(`/provider/deliveries/${selected.id}`)}>
                 {busyId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Mark Delivered
+                Open Trip
+              </Button>
+            )}
+            {selected?.status === "AWAITING_PAYMENT" && (
+              <Button disabled={busyId === selected.id} onClick={() => selected && void runAction(selected, "mark_paid")}>
+                {busyId === selected.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Record Payment
               </Button>
             )}
           </DialogFooter>

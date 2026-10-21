@@ -10,6 +10,7 @@ const locationSchema = z.object({
   orderId: z.string().min(1),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100_000).optional(),
 })
 
 export async function POST(req: NextRequest) {

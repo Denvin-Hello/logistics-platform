@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { prisma } from "@/lib/prisma"
+import { formatDate } from "@/lib/format"
 import { Truck } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -143,7 +144,7 @@ export default async function AdminProvidersPage() {
                           ) : null}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {provider.createdAt.toLocaleDateString()}
+                          {formatDate(provider.createdAt)}
                         </TableCell>
                       </TableRow>
                     ))}

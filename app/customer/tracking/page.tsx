@@ -19,36 +19,44 @@ interface TrackingEvent {
 
 interface TrackingData {
   status: string
+  statusKey: string
   estimatedDelivery: string
+  pickupAddress: string
+  deliveryAddress: string
   events: TrackingEvent[]
   liveTracking?: unknown
 }
 
 export default function CustomerTrackingPage() {
   const [trackingNumber, setTrackingNumber] = useState<string | null>(null)
+  const [trackingEmail, setTrackingEmail] = useState("")
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [showMap, setShowMap] = useState(false)
 
-  const handleTrack = async (number: string) => {
+  const handleTrack = async (number: string, email: string) => {
     setNotFound(false)
     setShowMap(false)
     try {
-      const res = await fetch(`/api/tracking/${encodeURIComponent(number)}`)
-      if (res.status === 404) {
+      const res = await fetch(
+        `/api/tracking/${encodeURIComponent(number)}?email=${encodeURIComponent(email)}`,
+      )
+      if (!res.ok) {
         setNotFound(true)
         setTrackingData(null)
         setTrackingNumber(number)
+        setTrackingEmail(email)
         return
       }
-      if (!res.ok) throw new Error("tracking failed")
       const data: TrackingData = await res.json()
       setTrackingData(data)
       setTrackingNumber(number)
+      setTrackingEmail(email)
     } catch {
       setNotFound(true)
       setTrackingData(null)
       setTrackingNumber(number)
+      setTrackingEmail(email)
     }
   }
 
@@ -95,22 +103,24 @@ export default function CustomerTrackingPage() {
                   Back to Search
                 </Button>
 
-                {trackingData.status === "In Transit" && (
+                {trackingData.statusKey === "ASSIGNED" || trackingData.statusKey === "IN_TRANSIT" ? (
                   <Button variant={showMap ? "secondary" : "default"} onClick={() => setShowMap(!showMap)}>
                     <Map className="h-4 w-4 mr-2" />
                     {showMap ? "Show Timeline" : "Live Map"}
                   </Button>
-                )}
+                ) : null}
               </div>
 
-{showMap && trackingData.liveTracking ? (
-              <LiveMap trackingNumber={trackingNumber} />
+              {showMap && trackingData.liveTracking ? (
+                <LiveMap trackingNumber={trackingNumber} email={trackingEmail} />
             ) : (
                 <TrackingTimeline
                   trackingNumber={trackingNumber}
                   events={trackingData.events}
                   currentStatus={trackingData.status}
                   estimatedDelivery={trackingData.estimatedDelivery}
+                  pickupAddress={trackingData.pickupAddress}
+                  deliveryAddress={trackingData.deliveryAddress}
                 />
               )}
             </div>

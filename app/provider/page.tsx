@@ -7,6 +7,7 @@ import { AvailableOrders } from "@/components/provider/available-orders"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, DollarSign, Clock, CheckCircle2 } from "lucide-react"
 import { formatRands } from "@/lib/format"
+import { ORDER_STATUS } from "@/lib/order-status"
 
 export const dynamic = "force-dynamic"
 
@@ -31,7 +32,11 @@ export default async function ProviderDashboard() {
   }))
 
   const availableOrders = await prisma.order.findMany({
-    where: { status: "PAID", assignedProviderId: null },
+    where: {
+      status: { in: [ORDER_STATUS.PRICE_AGREED, "PENDING"] },
+      assignedProviderId: null,
+      ...(session?.user?.id ? { declines: { none: { providerId: session.user.id } } } : {}),
+    },
     orderBy: { createdAt: "desc" },
   })
 
@@ -42,15 +47,16 @@ export default async function ProviderDashboard() {
     pickupAddress: o.pickupAddress,
     deliveryAddress: o.deliveryAddress,
     amount: o.amount,
+    baseAmount: o.baseAmount,
     packageType: o.packageType,
     createdAt: o.createdAt.toISOString(),
   }))
 
-  const activeCount = orders.filter((o) => o.status !== "DELIVERED").length
+  const activeCount = orders.filter((o) => o.status !== ORDER_STATUS.PAID && o.status !== "DELIVERED").length
   const earnings = orders
-    .filter((o) => o.status === "DELIVERED")
+    .filter((o) => o.status === ORDER_STATUS.PAID || o.status === "DELIVERED")
     .reduce((sum, o) => sum + o.amount, 0)
-  const deliveredCount = orders.filter((o) => o.status === "DELIVERED").length
+  const deliveredCount = orders.filter((o) => o.status === ORDER_STATUS.PAID || o.status === "DELIVERED").length
 
   return (
     <div className="flex min-h-screen bg-background">

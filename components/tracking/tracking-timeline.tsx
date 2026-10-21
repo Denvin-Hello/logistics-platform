@@ -17,19 +17,31 @@ interface TrackingTimelineProps {
   events: TrackingEvent[]
   currentStatus: string
   estimatedDelivery?: string
+  pickupAddress?: string
+  deliveryAddress?: string
 }
 
-export function TrackingTimeline({ trackingNumber, events, currentStatus, estimatedDelivery }: TrackingTimelineProps) {
+export function TrackingTimeline({
+  trackingNumber,
+  events,
+  currentStatus,
+  estimatedDelivery,
+  pickupAddress,
+  deliveryAddress,
+}: TrackingTimelineProps) {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "pending":
+      case "price agreed":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "picked up":
+      case "provider assigned":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
       case "in transit":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-      case "out for delivery":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+      case "awaiting payment":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
       case "delivered":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+      case "payment received":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
       case "cancelled":
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
@@ -40,16 +52,18 @@ export function TrackingTimeline({ trackingNumber, events, currentStatus, estima
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case "pending":
+      case "price agreed":
         return <Clock className="h-4 w-4" />
-      case "picked up":
-        return <Package className="h-4 w-4" />
+      case "provider assigned":
+        return <User className="h-4 w-4" />
       case "in transit":
         return <Truck className="h-4 w-4" />
-      case "out for delivery":
-        return <MapPin className="h-4 w-4" />
+      case "awaiting payment":
+        return <Clock className="h-4 w-4" />
       case "delivered":
-        return <User className="h-4 w-4" />
+        return <CheckCircle className="h-4 w-4" />
+      case "payment received":
+        return <CheckCircle className="h-4 w-4" />
       default:
         return <Circle className="h-4 w-4" />
     }
@@ -146,19 +160,11 @@ export function TrackingTimeline({ trackingNumber, events, currentStatus, estima
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium">Pickup Location:</span>
-              <p className="text-muted-foreground">123 Main Street, Cape Town</p>
+              <p className="text-muted-foreground">{pickupAddress || "—"}</p>
             </div>
             <div>
               <span className="font-medium">Delivery Location:</span>
-              <p className="text-muted-foreground">456 Oak Avenue, Stellenbosch</p>
-            </div>
-            <div>
-              <span className="font-medium">Package Type:</span>
-              <p className="text-muted-foreground">Documents</p>
-            </div>
-            <div>
-              <span className="font-medium">Delivery Provider:</span>
-              <p className="text-muted-foreground">FastTrack Logistics</p>
+              <p className="text-muted-foreground">{deliveryAddress || "—"}</p>
             </div>
           </div>
 

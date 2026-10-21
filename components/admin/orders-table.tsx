@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Eye } from "lucide-react"
 import Link from "next/link"
+import { orderStatusColor, orderStatusLabel } from "@/lib/order-status"
 
 interface Order {
   id: string
@@ -22,26 +23,6 @@ interface OrdersTableProps {
 }
 
 export function OrdersTable({ orders }: OrdersTableProps) {
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase().replace("_", "-")) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-      case "awaiting-payment":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
-      case "paid":
-      case "assigned":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-      case "in-transit":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-      case "delivered":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-      case "cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -76,7 +57,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={getStatusColor(order.status)}>{order.status.replace("_", " ").toUpperCase()}</Badge>
+                  <Badge className={orderStatusColor(order.status)}>{orderStatusLabel(order.status)}</Badge>
                 </TableCell>
                 <TableCell>R{order.amount}</TableCell>
                 <TableCell>{order.date}</TableCell>

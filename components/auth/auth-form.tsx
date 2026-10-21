@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { VEHICLE_CLASSES } from "@/lib/freight"
 import { Truck, User } from "lucide-react"
 
 interface AuthFormProps {
@@ -23,6 +25,11 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
   const [customerName, setCustomerName] = useState("")
   const [providerName, setProviderName] = useState("")
   const [providerBusinessName, setProviderBusinessName] = useState("")
+  const [providerPhone, setProviderPhone] = useState("")
+  const [providerServiceArea, setProviderServiceArea] = useState("")
+  const [providerVehicleType, setProviderVehicleType] = useState("")
+  const [providerCapacity, setProviderCapacity] = useState("")
+  const [providerExperience, setProviderExperience] = useState("")
   const [signupMode, setSignupMode] = useState<"customer" | "provider">("customer")
   const [message, setMessage] = useState<string | null>(null)
 
@@ -73,6 +80,12 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
       return
     }
 
+    if (currentMode === "provider" && (!providerPhone.trim() || !providerVehicleType)) {
+      setMessage("Please add a contact number and choose your vehicle type.")
+      setIsLoading(false)
+      return
+    }
+
     const signupRes = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,6 +94,11 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
         name: currentMode === "customer" ? customerName : providerName,
         role: currentMode,
         businessName: currentMode === "provider" ? providerBusinessName : undefined,
+        phone: currentMode === "provider" ? providerPhone : undefined,
+        serviceArea: currentMode === "provider" ? providerServiceArea : undefined,
+        vehicleType: currentMode === "provider" ? providerVehicleType : undefined,
+        vehicleCapacityKg: currentMode === "provider" && providerCapacity ? Number(providerCapacity) : undefined,
+        yearsExperience: currentMode === "provider" && providerExperience ? Number(providerExperience) : undefined,
       }),
     })
 
@@ -235,17 +253,84 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
                   </div>
 
                   {signupMode === "provider" ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-business-name">Business Name</Label>
-                      <Input
-                        id="signup-business-name"
-                        type="text"
-                        value={providerBusinessName}
-                        placeholder="Business or fleet name"
-                        required
-                        onChange={(e) => setProviderBusinessName(e.target.value)}
-                      />
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-business-name">Business Name</Label>
+                        <Input
+                          id="signup-business-name"
+                          type="text"
+                          value={providerBusinessName}
+                          placeholder="Business or fleet name"
+                          required
+                          onChange={(e) => setProviderBusinessName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-phone">Contact Number</Label>
+                          <Input
+                            id="signup-phone"
+                            type="tel"
+                            value={providerPhone}
+                            placeholder="e.g. 082 123 4567"
+                            required
+                            onChange={(e) => setProviderPhone(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-service-area">Service Area</Label>
+                          <Input
+                            id="signup-service-area"
+                            type="text"
+                            value={providerServiceArea}
+                            placeholder="e.g. Cape Town, Western Cape"
+                            onChange={(e) => setProviderServiceArea(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-vehicle">Vehicle Type</Label>
+                          <Select value={providerVehicleType} onValueChange={setProviderVehicleType}>
+                            <SelectTrigger id="signup-vehicle">
+                              <SelectValue placeholder="Choose a vehicle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {VEHICLE_CLASSES.map((vehicle) => (
+                                <SelectItem key={vehicle.code} value={vehicle.label}>
+                                  {vehicle.label} · up to {vehicle.payloadKg}kg
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-capacity">Payload Capacity (kg)</Label>
+                          <Input
+                            id="signup-capacity"
+                            type="number"
+                            min={0}
+                            value={providerCapacity}
+                            placeholder="e.g. 1000"
+                            onChange={(e) => setProviderCapacity(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-experience">Years of Experience</Label>
+                        <Input
+                          id="signup-experience"
+                          type="number"
+                          min={0}
+                          value={providerExperience}
+                          placeholder="e.g. 3"
+                          onChange={(e) => setProviderExperience(e.target.value)}
+                        />
+                      </div>
+                    </>
                   ) : null}
 
                   <div className="space-y-2">

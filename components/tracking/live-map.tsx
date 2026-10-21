@@ -6,6 +6,8 @@ import "leaflet/dist/leaflet.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Truck, Navigation, Clock, Satellite } from "lucide-react"
+import { formatDistance } from "@/lib/geo"
+import { formatTime } from "@/lib/format"
 
 const JOBURG: [number, number] = [-26.2041, 28.0473]
 
@@ -27,14 +29,11 @@ const pinIcon = (L: typeof import("leaflet"), color: string, glyph: string) =>
 
 async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
-      { headers: { Accept: "application/json" } },
-    )
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(address)}`)
     if (!res.ok) return null
     const data = await res.json()
-    if (!Array.isArray(data) || data.length === 0) return null
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    if (typeof data?.lat !== "number" || typeof data?.lng !== "number") return null
+    return { lat: data.lat, lng: data.lng }
   } catch {
     return null
   }
@@ -48,8 +47,19 @@ interface DriverLocation {
 
 interface TrackingData {
   status: string
+  statusKey: string
   pickupAddress: string
   deliveryAddress: string
+  coordinates?: {
+    pickup: { lat: number; lng: number } | null
+    delivery: { lat: number; lng: number } | null
+  }
+  route?: {
+    geometry: [number, number][]
+    distanceM: number
+    durationS: number
+    isFallback: boolean
+  } | null
   liveTracking?: {
     driverLocation: DriverLocation | null
     pickupAddress: string
@@ -59,17 +69,19 @@ interface TrackingData {
   }
 }
 
-export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
+export function LiveMap({ trackingNumber, email }: { trackingNumber: string; email: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const leafletRef = useRef<typeof import("leaflet") | null>(null)
   const mapRef = useRef<L.Map | null>(null)
   const truckMarkerRef = useRef<L.Marker | null>(null)
   const pickupMarkerRef = useRef<L.Marker | null>(null)
   const deliveryMarkerRef = useRef<L.Marker | null>(null)
+  const routeLineRef = useRef<L.Polyline | null>(null)
   const boundsRef = useRef<L.LatLng[]>([])
   const [data, setData] = useState<TrackingData | null>(null)
   const [driver, setDriver] = useState<DriverLocation | null>(null)
   const [geocodeNote, setGeocodeNote] = useState<string | null>(null)
+  const [mapReady, setMapReady] = useState(false)
 
   useEffect(() => {
     let disposed = false
@@ -87,6 +99,7 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map)
+      setMapReady(true)
     }
 
     void initMap()
@@ -98,7 +111,9 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
         mapRef.current = null
       }
       truckMarkerRef.current = null
+      routeLineRef.current = null
       leafletRef.current = null
+      setMapReady(false)
     }
   }, [])
 
@@ -108,7 +123,9 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
 
     async function poll() {
       try {
-        const res = await fetch(`/api/tracking/${encodeURIComponent(trackingNumber)}`)
+        const res = await fetch(
+          `/api/tracking/${encodeURIComponent(trackingNumber)}?email=${encodeURIComponent(email)}`,
+        )
         if (res.ok) {
           const json: TrackingData = await res.json()
           if (cancelled) return
@@ -122,7 +139,7 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
 
           if (!truckMarkerRef.current) {
             truckMarkerRef.current = L.marker([loc.lat, loc.lng], { icon: truckIcon(L) })
-              .bindPopup(`<b>Driver position</b><br/>Updated ${loc.updatedAt ? new Date(loc.updatedAt).toLocaleTimeString() : "just now"}`)
+              .bindPopup(`<b>Driver position</b><br/>Updated ${loc.updatedAt ? formatTime(loc.updatedAt) : "just now"}`)
               .addTo(mapRef.current)
           } else {
             truckMarkerRef.current.setLatLng([loc.lat, loc.lng])
@@ -142,7 +159,7 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
       cancelled = true
       if (timeoutId) clearInterval(timeoutId)
     }
-  }, [trackingNumber])
+  }, [trackingNumber, email])
 
   useEffect(() => {
     async function placeMarkers() {
@@ -151,19 +168,40 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
       let added = false
       let attempted = 0
 
-      const targets: { ref: { current: L.Marker | null }; label: string; value: string; color: string; glyph: string }[] = [
-        { ref: pickupMarkerRef, label: "Pickup", value: data?.pickupAddress ?? data?.liveTracking?.pickupAddress ?? "", color: "#16a34a", glyph: "📦" },
-        { ref: deliveryMarkerRef, label: "Delivery", value: data?.deliveryAddress ?? data?.liveTracking?.deliveryAddress ?? "", color: "#dc2626", glyph: "🏠" },
+      const targets: {
+        ref: { current: L.Marker | null }
+        label: string
+        value: string
+        coord: { lat: number; lng: number } | null
+        color: string
+        glyph: string
+      }[] = [
+        {
+          ref: pickupMarkerRef,
+          label: "Pickup",
+          value: data?.pickupAddress ?? data?.liveTracking?.pickupAddress ?? "",
+          coord: data?.coordinates?.pickup ?? null,
+          color: "#16a34a",
+          glyph: "📦",
+        },
+        {
+          ref: deliveryMarkerRef,
+          label: "Delivery",
+          value: data?.deliveryAddress ?? data?.liveTracking?.deliveryAddress ?? "",
+          coord: data?.coordinates?.delivery ?? null,
+          color: "#dc2626",
+          glyph: "🏠",
+        },
       ]
 
-      for (const { ref, label, value, color, glyph } of targets) {
+      for (const { ref, label, value, coord, color, glyph } of targets) {
         if (!value) continue
         attempted++
         if (ref.current) {
           ref.current.remove()
           ref.current = null
         }
-        const point = await geocode(value)
+        const point = coord ?? (await geocode(value))
         if (point && mapRef.current) {
           const marker = L.marker([point.lat, point.lng], { icon: pinIcon(L, color, glyph) })
           marker.bindPopup(`<b>${label}</b><br/>${value}`)
@@ -177,17 +215,62 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
       if (attempted > 0 && !added) {
         setGeocodeNote("Could not place pickup/delivery on the map. The driver marker still updates live.")
       }
+
+      if (added && boundsRef.current.length >= 2 && mapRef.current) {
+        mapRef.current.fitBounds(L.latLngBounds(boundsRef.current).pad(0.3))
+      }
     }
 
     void placeMarkers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.pickupAddress, data?.deliveryAddress, data?.liveTracking?.pickupAddress, data?.liveTracking?.deliveryAddress])
+  }, [
+    data?.pickupAddress,
+    data?.deliveryAddress,
+    data?.coordinates?.pickup?.lat,
+    data?.coordinates?.pickup?.lng,
+    data?.coordinates?.delivery?.lat,
+    data?.coordinates?.delivery?.lng,
+    data?.liveTracking?.pickupAddress,
+    data?.liveTracking?.deliveryAddress,
+    mapReady,
+  ])
 
   useEffect(() => {
-    if (boundsRef.current.length >= 2 && leafletRef.current && mapRef.current) {
+    // When a route is shown, keep the full route in view instead of re-fitting
+    // to the driver's accumulated positions on every poll.
+    if (!routeLineRef.current && boundsRef.current.length >= 2 && leafletRef.current && mapRef.current) {
       mapRef.current.fitBounds(leafletRef.current.latLngBounds(boundsRef.current).pad(0.3))
     }
   }, [driver])
+
+  const routeKey = data?.route
+    ? `${data.route.distanceM}:${data.route.durationS}:${data.route.isFallback}`
+    : ""
+
+  useEffect(() => {
+    const L = leafletRef.current
+    const map = mapRef.current
+    if (!L || !map) return
+
+    if (routeLineRef.current) {
+      routeLineRef.current.remove()
+      routeLineRef.current = null
+    }
+
+    const route = data?.route
+    if (!route || route.geometry.length < 2) return
+
+    routeLineRef.current = L.polyline(route.geometry, {
+      color: route.isFallback ? "#f59e0b" : "#2563eb",
+      weight: 5,
+      opacity: 0.7,
+      dashArray: route.isFallback ? "8 8" : undefined,
+    }).addTo(map)
+
+    map.fitBounds(L.latLngBounds(route.geometry).pad(0.2))
+    // routeKey keeps this effect from redrawing and re-fitting on every poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey, mapReady])
 
   const liveInfo = data?.liveTracking
 
@@ -244,7 +327,7 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
                       {driver.lat.toFixed(5)}, {driver.lng.toFixed(5)}
                     </p>
                     <p className="text-xs text-muted-foreground pl-6">
-                      Last update: {driver.updatedAt ? new Date(driver.updatedAt).toLocaleTimeString() : "just now"}
+                      Last update: {driver.updatedAt ? formatTime(driver.updatedAt) : "just now"}
                     </p>
                   </>
                 ) : (
@@ -259,6 +342,22 @@ export function LiveMap({ trackingNumber }: { trackingNumber: string }) {
                 </div>
                 <p className="text-sm font-medium pl-6">{liveInfo?.estimatedArrival ?? "—"}</p>
               </div>
+
+              {data?.route ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Navigation className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Route:</span>
+                  </div>
+                  <p className="text-sm font-medium pl-6">
+                    {formatDistance(data.route.distanceM)} · ~
+                    {Math.max(1, Math.round(data.route.durationS / 60))} min
+                  </p>
+                  {data.route.isFallback ? (
+                    <p className="text-xs text-amber-600 pl-6">Approximate route — live road routing is unavailable.</p>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

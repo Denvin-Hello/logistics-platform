@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import EmailProvider from "next-auth/providers/email"
 import { prisma } from "./prisma"
+import { sendVerificationEmail } from "./email"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -24,6 +25,10 @@ export const authOptions: NextAuthOptions = {
     EmailProvider({
       server: process.env.EMAIL_SERVER || "",
       from: process.env.EMAIL_FROM || "",
+      // Prefer Resend when configured; falls back to the EMAIL_SERVER transport.
+      async sendVerificationRequest({ identifier, url }) {
+        await sendVerificationEmail({ identifier, url })
+      },
     }),
   ],
   callbacks: {

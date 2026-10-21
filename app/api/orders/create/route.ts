@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
 import { GOODS_CATEGORIES, getCategory, quoteFreight } from "@/lib/freight"
+import { geocodePair } from "@/lib/geocode"
+import { ORDER_STATUS } from "@/lib/order-status"
 import { z } from "zod"
 
 const orderDetailsSchema = z.object({
@@ -92,6 +94,10 @@ export async function POST(request: NextRequest) {
     const orderNumber = `ORD${randomUUID().slice(0, 12).toUpperCase()}`
     const amount = quote.amount
 
+    // Best-effort geocoding so the live map has real coordinates without relying
+    // on the browser. Failures degrade to on-demand client geocoding.
+    const coords = await geocodePair(details.pickupAddress, details.deliveryAddress)
+
     const order = await prisma.order.create({
       data: {
         orderNumber,
@@ -107,6 +113,7 @@ export async function POST(request: NextRequest) {
         deliveryPhone: details.deliveryPhone,
         deliveryInstructions: details.deliveryInstructions,
         packageType: details.packageType,
+        packageCategory: category.group,
         weight: details.weight,
         length: details.length,
         width: details.width,
@@ -116,10 +123,16 @@ export async function POST(request: NextRequest) {
         insurance: details.insurance,
         signatureRequired: details.signatureRequired,
         amount,
+        baseAmount: amount,
+        source: "FORM",
+        pickupLat: coords.pickup?.lat ?? null,
+        pickupLng: coords.pickup?.lng ?? null,
+        deliveryLat: coords.delivery?.lat ?? null,
+        deliveryLng: coords.delivery?.lng ?? null,
         description: "LogiConnect Delivery Service",
-        paymentMethod: details.paymentMethod,
+        paymentMethod: "pay_on_delivery",
         paymentStatus: "PENDING",
-        status: "PENDING",
+        status: ORDER_STATUS.PRICE_AGREED,
       },
     })
 

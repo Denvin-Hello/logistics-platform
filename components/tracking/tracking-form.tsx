@@ -10,22 +10,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Search, Package } from "lucide-react"
 
 interface TrackingFormProps {
-  onTrack: (trackingNumber: string) => void
+  onTrack: (trackingNumber: string, email: string) => void
 }
 
 export function TrackingForm({ onTrack }: TrackingFormProps) {
   const [trackingNumber, setTrackingNumber] = useState("")
+  const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!trackingNumber.trim()) return
+    if (!trackingNumber.trim() || !email.trim()) return
 
     setIsLoading(true)
-    setTimeout(() => {
-      setIsLoading(false)
-      onTrack(trackingNumber.trim())
-    }, 500)
+    onTrack(trackingNumber.trim(), email.trim())
+    setIsLoading(false)
   }
 
   return (
@@ -35,17 +34,28 @@ export function TrackingForm({ onTrack }: TrackingFormProps) {
           <Package className="h-8 w-8 text-accent" />
         </div>
         <CardTitle>Track Your Package</CardTitle>
-        <CardDescription>Enter your tracking number to see real-time delivery updates</CardDescription>
+        <CardDescription>Enter your order number and email to see live delivery updates</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="tracking-number">Tracking Number</Label>
+            <Label htmlFor="tracking-number">Order Number</Label>
             <Input
               id="tracking-number"
-              placeholder="Enter tracking number (e.g., ORD001, DEL123)"
+              placeholder="e.g. ORD1A2B3C4D5E6F"
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tracking-email">Email on the order</Label>
+            <Input
+              id="tracking-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -65,7 +75,7 @@ export function TrackingForm({ onTrack }: TrackingFormProps) {
         </form>
 
         <div className="mt-6 text-sm text-muted-foreground">
-          <p className="font-medium mb-2">Use the order number from your order confirmation.</p>
+          <p className="font-medium mb-2">Use the order number and email from your order confirmation.</p>
         </div>
       </CardContent>
     </Card>

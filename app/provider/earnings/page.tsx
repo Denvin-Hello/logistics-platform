@@ -16,10 +16,9 @@ export default async function ProviderEarningsPage() {
     orderBy: { createdAt: "desc" },
   })
 
-  const earnings = orders
-    .filter((o) => o.status === "DELIVERED")
-    .reduce((sum, o) => sum + o.amount, 0)
-  const deliveredCount = orders.filter((o) => o.status === "DELIVERED").length
+  const paidOrders = orders.filter((o) => o.paymentStatus === "PAID" || o.status === "PAID")
+  const earnings = paidOrders.reduce((sum, o) => sum + o.amount, 0)
+  const deliveredCount = paidOrders.length
   const payout = Math.round(earnings * 0.85)
   const platformFee = earnings - payout
 
@@ -66,7 +65,7 @@ export default async function ProviderEarningsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold">{orders.length - deliveredCount}</p>
-              <p className="text-sm text-muted-foreground">Assigned orders not yet delivered</p>
+              <p className="text-sm text-muted-foreground">Assigned orders not yet paid</p>
             </CardContent>
           </Card>
         </div>

@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { formatDate } from "@/lib/format"
 import { Check, X, Clock, Loader2 } from "lucide-react"
 
 interface PendingProvider {
@@ -24,7 +25,18 @@ interface PendingProvider {
   name: string | null
   email: string | null
   businessName: string | null
+  phone: string | null
+  serviceArea: string | null
+  vehicleType: string | null
+  vehicleCapacityKg: number | null
+  yearsExperience: number | null
   createdAt: string
+}
+
+function vehicleSummary(provider: PendingProvider) {
+  if (!provider.vehicleType) return "—"
+  const capacity = provider.vehicleCapacityKg ? ` · ${provider.vehicleCapacityKg}kg` : ""
+  return `${provider.vehicleType}${capacity}`
 }
 
 export function ProviderApplications({ providers }: { providers: PendingProvider[] }) {
@@ -92,7 +104,9 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
               <TableRow>
                 <TableHead>Applicant</TableHead>
                 <TableHead>Business</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Vehicle</TableHead>
+                <TableHead>Area</TableHead>
                 <TableHead>Submitted</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -112,8 +126,11 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
                     <Badge variant="outline">{provider.businessName || "-"}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{provider.email}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{provider.phone || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{vehicleSummary(provider)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{provider.serviceArea || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(provider.createdAt).toLocaleDateString()}
+                    {formatDate(provider.createdAt)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
