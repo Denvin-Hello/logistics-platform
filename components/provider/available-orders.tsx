@@ -19,6 +19,7 @@ export interface AvailableOrder {
   baseAmount?: number | null
   packageType: string
   createdAt: string
+  urgent?: boolean
 }
 
 export function AvailableOrders({ orders }: { orders: AvailableOrder[] }) {
@@ -71,7 +72,9 @@ export function AvailableOrders({ orders }: { orders: AvailableOrder[] }) {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">#{order.orderNumber}</CardTitle>
-              <Badge variant="secondary">Available</Badge>
+              <Badge variant={order.urgent ? "destructive" : "secondary"}>
+                {order.urgent ? "Urgent" : "Available"}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground">Customer: {order.customerName}</p>
           </CardHeader>

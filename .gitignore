@@ -34,3 +34,6 @@ test-results/
 prisma/dev.db
 prisma/dev.db-journal
 prisma/prisma/
+
+# local compliance document storage
+/.uploads/

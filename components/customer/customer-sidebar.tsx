@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SignOutButton } from "@/components/auth/sign-out-button"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { LayoutDashboard, Package, Plus, MapPin, CreditCard, LifeBuoy, Zap } from "lucide-react"
 
 const navigation = [
@@ -22,14 +23,17 @@ export function CustomerSidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
-      <div className="flex items-center gap-2 p-6 border-b">
-        <div className="bg-accent rounded-lg p-2">
-          <Package className="h-6 w-6 text-accent-foreground" />
+      <div className="flex items-center justify-between gap-2 p-6 border-b">
+        <div className="flex items-center gap-2">
+          <div className="bg-accent rounded-lg p-2">
+            <Package className="h-6 w-6 text-accent-foreground" />
+          </div>
+          <div>
+            <h2 className="font-semibold">Customer Portal</h2>
+            <p className="text-sm text-muted-foreground">LogiConnect</p>
+          </div>
         </div>
-        <div>
-          <h2 className="font-semibold">Customer Portal</h2>
-          <p className="text-sm text-muted-foreground">LogiConnect</p>
-        </div>
+        <NotificationBell />
       </div>
 
       <nav className="flex-1 p-4 space-y-2">

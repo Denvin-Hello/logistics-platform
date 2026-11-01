@@ -62,10 +62,13 @@ interface TrackingData {
   } | null
   liveTracking?: {
     driverLocation: DriverLocation | null
+    driverLocationAgeSeconds: number | null
+    driverLocationStale: boolean
     pickupAddress: string
     deliveryAddress: string
     estimatedArrival: string
-    driverInfo: { name: string; phone: string; vehicle: string }
+    pollAfterMs?: number
+    driverInfo: { displayName: string; phone: string; canContact: boolean; vehicle: string }
   }
 }
 
@@ -82,6 +85,7 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
   const [driver, setDriver] = useState<DriverLocation | null>(null)
   const [geocodeNote, setGeocodeNote] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
+  const [pollMs, setPollMs] = useState(10_000)
 
   useEffect(() => {
     let disposed = false
@@ -130,6 +134,8 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
           const json: TrackingData = await res.json()
           if (cancelled) return
           setData(json)
+          const nextPoll = json.liveTracking?.pollAfterMs ?? 15_000
+          setPollMs((current) => (current === nextPoll ? current : nextPoll))
 
           const loc = json.liveTracking?.driverLocation ?? null
           setDriver(loc)
@@ -153,13 +159,13 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
     }
 
     void poll()
-    timeoutId = setInterval(poll, 10_000)
+    timeoutId = setInterval(poll, pollMs)
 
     return () => {
       cancelled = true
       if (timeoutId) clearInterval(timeoutId)
     }
-  }, [trackingNumber, email])
+  }, [trackingNumber, email, pollMs])
 
   useEffect(() => {
     async function placeMarkers() {
@@ -284,7 +290,9 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
                 <Navigation className="h-5 w-5 text-accent" />
                 Live Tracking - #{trackingNumber}
               </CardTitle>
-              <CardDescription>Driver location updates every few seconds</CardDescription>
+              <CardDescription>
+                Driver location refreshes every {Math.round(pollMs / 1000)} seconds
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -329,6 +337,11 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
                     <p className="text-xs text-muted-foreground pl-6">
                       Last update: {driver.updatedAt ? formatTime(driver.updatedAt) : "just now"}
                     </p>
+                    {liveInfo?.driverLocationStale ? (
+                      <Badge variant="destructive" className="ml-6">
+                        Location may be stale
+                      </Badge>
+                    ) : null}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground pl-6">Waiting for driver to share location...</p>
@@ -368,12 +381,21 @@ export function LiveMap({ trackingNumber, email }: { trackingNumber: string; ema
             <CardContent className="space-y-3">
               <div>
                 <span className="text-sm font-medium">Name:</span>
-                <p className="text-sm text-muted-foreground">{liveInfo?.driverInfo.name ?? "—"}</p>
+                <p className="text-sm text-muted-foreground">{liveInfo?.driverInfo.displayName ?? "—"}</p>
               </div>
               <div>
                 <span className="text-sm font-medium">Phone:</span>
                 <p className="text-sm text-muted-foreground">{liveInfo?.driverInfo.phone ?? "—"}</p>
               </div>
+              <div>
+                <span className="text-sm font-medium">Vehicle:</span>
+                <p className="text-sm text-muted-foreground">{liveInfo?.driverInfo.vehicle ?? "—"}</p>
+              </div>
+              {liveInfo && !liveInfo.driverInfo.canContact ? (
+                <p className="text-xs text-muted-foreground">
+                  Full contact details are shared once the trip starts.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 

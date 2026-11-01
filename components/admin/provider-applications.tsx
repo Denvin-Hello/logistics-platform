@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Textarea } from "@/components/ui/textarea"
+import { DOCUMENT_TYPE_META } from "@/lib/compliance-rules"
 import { formatDate } from "@/lib/format"
 import { Check, X, Clock, Loader2 } from "lucide-react"
 
@@ -44,6 +47,11 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [declining, setDeclining] = useState<PendingProvider | null>(null)
   const [reason, setReason] = useState("")
+  const [complianceBlock, setComplianceBlock] = useState<{
+    provider: PendingProvider
+    missing: string[]
+  } | null>(null)
+  const [overrideReason, setOverrideReason] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -55,7 +63,7 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
       .toUpperCase()
       .slice(0, 2)
 
-  const review = async (userId: string, action: "approve" | "decline") => {
+  const review = async (userId: string, action: "approve" | "decline", override?: string) => {
     setLoading(true)
     setError(null)
     setPendingId(userId)
@@ -63,17 +71,33 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
       const res = await fetch("/api/admin/providers/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, action, reason: action === "decline" ? reason : undefined }),
+        body: JSON.stringify({
+          userId,
+          action,
+          reason: action === "decline" ? reason : undefined,
+          overrideReason: action === "approve" ? override : undefined,
+        }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || "Something went wrong.")
+        if (action === "approve" && data.code === "COMPLIANCE_REQUIRED") {
+          const provider = providers.find((entry) => entry.id === userId)
+          if (provider) {
+            setComplianceBlock({ provider, missing: Array.isArray(data.missing) ? data.missing : [] })
+          } else {
+            setError(data.error || "Compliance documents are required.")
+          }
+        } else {
+          setError(data.error || "Something went wrong.")
+        }
         setLoading(false)
         setPendingId(null)
         return
       }
       setDeclining(null)
+      setComplianceBlock(null)
       setReason("")
+      setOverrideReason("")
       setLoading(false)
       setPendingId(null)
       router.refresh()
@@ -134,6 +158,15 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link
+                          href={`/admin/compliance?q=${encodeURIComponent(
+                            provider.email || provider.name || provider.id,
+                          )}`}
+                        >
+                          Docs
+                        </Link>
+                      </Button>
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700"
@@ -195,6 +228,92 @@ export function ProviderApplications({ providers }: { providers: PendingProvider
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Decline Application
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(complianceBlock)}
+        onOpenChange={(open) => {
+          if (!open && !loading) {
+            setComplianceBlock(null)
+            setOverrideReason("")
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Compliance documents required</DialogTitle>
+            <DialogDescription>
+              {complianceBlock
+                ? `${complianceBlock.provider.businessName || complianceBlock.provider.name || "This provider"} does not have all required documents verified.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {complianceBlock && complianceBlock.missing.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Missing or invalid documents</p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {complianceBlock.missing.map((type) => (
+                  <li key={type}>
+                    {DOCUMENT_TYPE_META[type as keyof typeof DOCUMENT_TYPE_META]?.label ?? type}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">Review the documents first</p>
+            <p className="text-muted-foreground">
+              Open the provider&apos;s documents in the compliance queue before using an override. An override
+              approves the account, but order acceptance stays blocked until the required documents are verified.
+            </p>
+            <Button size="sm" variant="outline" asChild>
+              <Link
+                href={`/admin/compliance?q=${encodeURIComponent(
+                  complianceBlock?.provider.email || complianceBlock?.provider.id || "",
+                )}`}
+              >
+                Open compliance queue
+              </Link>
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="override-reason">Override reason</Label>
+            <Textarea
+              id="override-reason"
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder="Explain why this provider should be approved without complete documents."
+              rows={3}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setComplianceBlock(null)
+                setOverrideReason("")
+              }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={loading || !overrideReason.trim()}
+              onClick={() =>
+                complianceBlock &&
+                review(complianceBlock.provider.id, "approve", overrideReason.trim())
+              }
+            >
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Approve with override
             </Button>
           </DialogFooter>
         </DialogContent>

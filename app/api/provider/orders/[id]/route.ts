@@ -4,8 +4,14 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
 import { isOpenToProviders, ORDER_STATUS } from "@/lib/order-status"
+import { getProviderCompliance } from "@/lib/compliance"
 import { haversineDistanceM } from "@/lib/geo"
 import { ARRIVAL_RADIUS_M, MAX_GPS_ACCURACY_M } from "@/lib/trip-config"
+import { acceptOffer, AssignmentError, declineOffer } from "@/lib/assignment"
+import { isAutoAssignmentEnabled } from "@/lib/assignment-policy"
+import { notifyUser } from "@/lib/notifications"
+import { recordAudit } from "@/lib/audit"
+import { formatRands } from "@/lib/format"
 import { z } from "zod"
 
 const actionSchema = z.object({
@@ -53,6 +59,39 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         return NextResponse.json({ ok: true, status: order.status })
       }
 
+      const offer = await prisma.orderOffer.findUnique({
+        where: { orderId_providerId: { orderId: order.id, providerId } },
+      })
+      const activeOffer =
+        offer?.status === "PENDING" && offer.expiresAt.getTime() > Date.now()
+
+      if (activeOffer || isAutoAssignmentEnabled()) {
+        try {
+          const result = await acceptOffer(order.id, providerId, providerId)
+          return NextResponse.json({ ok: true, status: result.order.status })
+        } catch (error) {
+          if (error instanceof AssignmentError) {
+            return NextResponse.json(
+              { error: error.message, code: error.code, ...(error.details as object | undefined) },
+              { status: error.status },
+            )
+          }
+          throw error
+        }
+      }
+
+      const compliance = await getProviderCompliance(providerId, "ACCEPT_ORDER")
+      if (!compliance.ok) {
+        return NextResponse.json(
+          {
+            error: "Complete your compliance documents before accepting new deliveries.",
+            code: "COMPLIANCE_REQUIRED",
+            missing: compliance.missing,
+          },
+          { status: 403 },
+        )
+      }
+
       const claimed = await prisma.order.updateMany({
         where: {
           id: order.id,
@@ -68,6 +107,27 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           { status: 409 },
         )
       }
+
+      await notifyUser({
+        userId: order.customerId,
+        type: "ORDER_ASSIGNED",
+        title: "Provider assigned",
+        body: `A delivery provider accepted ${order.orderNumber}. Track the delivery from your orders page.`,
+        href: `/customer/orders/${order.id}`,
+        email: {
+          to: order.customerEmail,
+          subject: `Provider assigned · ${order.orderNumber}`,
+          text: `A delivery provider accepted ${order.orderNumber}. You can follow the delivery in your LogiConnect account.`,
+        },
+      })
+      await recordAudit({
+        actorId: providerId,
+        action: "order.assignment.legacy_claim",
+        entityType: "Order",
+        entityId: order.id,
+        metadata: { providerId },
+      })
+
       return NextResponse.json({ ok: true, status: ORDER_STATUS.ASSIGNED })
     }
 
@@ -78,6 +138,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (!isOpenToProviders(order.status)) {
         return NextResponse.json({ error: "This order can no longer be declined." }, { status: 409 })
       }
+
+      const offer = await prisma.orderOffer.findUnique({
+        where: { orderId_providerId: { orderId: order.id, providerId } },
+      })
+      if (offer?.status === "PENDING" && offer.expiresAt.getTime() > Date.now()) {
+        try {
+          await declineOffer(order.id, providerId, reason)
+          return NextResponse.json({ ok: true, status: order.status })
+        } catch (error) {
+          if (error instanceof AssignmentError) {
+            return NextResponse.json(
+              { error: error.message, code: error.code },
+              { status: error.status },
+            )
+          }
+          throw error
+        }
+      }
+
       await prisma.orderDecline.upsert({
         where: { orderId_providerId: { orderId: order.id, providerId } },
         update: { reason: reason?.trim() || null },
@@ -102,6 +181,22 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           startedAt: order.startedAt ?? new Date(),
         },
       })
+
+      await notifyUser({
+        userId: order.customerId,
+        type: "ORDER_STARTED",
+        title: "Delivery on the way",
+        body: `${order.orderNumber} has been collected and is on the way to ${order.deliveryAddress}.`,
+        href: `/customer/orders/${order.id}`,
+      })
+      await recordAudit({
+        actorId: providerId,
+        action: "order.status.started",
+        entityType: "Order",
+        entityId: order.id,
+        metadata: { providerId },
+      })
+
       return NextResponse.json({ ok: true, status: updated.status })
     }
 
@@ -172,6 +267,26 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           driverLocationUpdatedAt: new Date(),
         },
       })
+      await notifyUser({
+        userId: order.customerId,
+        type: "ORDER_DELIVERED",
+        title: "Delivery completed",
+        body: `${order.orderNumber} was delivered to ${order.deliveryName}. Payment of ${formatRands(order.amount)} is now due.`,
+        href: `/customer/orders/${order.id}`,
+        email: {
+          to: order.customerEmail,
+          subject: `Delivered · ${order.orderNumber}`,
+          text: `${order.orderNumber} was delivered to ${order.deliveryName}. Payment of ${formatRands(order.amount)} is now due.`,
+        },
+      })
+      await recordAudit({
+        actorId: providerId,
+        action: "order.status.delivered",
+        entityType: "Order",
+        entityId: order.id,
+        metadata: { providerId, distanceM: Math.round(distanceM) },
+      })
+
       return NextResponse.json({
         ok: true,
         status: updated.status,
@@ -204,6 +319,21 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: { paymentStatus: "PAID", status: ORDER_STATUS.PAID, paidAt: now },
+    })
+
+    await notifyUser({
+      userId: order.customerId,
+      type: "ORDER_PAID",
+      title: "Payment received",
+      body: `Payment of ${formatRands(order.amount)} for ${order.orderNumber} has been recorded.`,
+      href: `/customer/orders/${order.id}`,
+    })
+    await recordAudit({
+      actorId: providerId,
+      action: "order.status.paid",
+      entityType: "Order",
+      entityId: order.id,
+      metadata: { providerId, method: "cod" },
     })
 
     return NextResponse.json({ ok: true, status: updated.status })

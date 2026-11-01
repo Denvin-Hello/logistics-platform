@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { formatRands } from "@/lib/format"
+import { getCategoryPath } from "@/lib/freight"
+import { parcelCatalogPath } from "@/lib/package-catalog"
 import { orderStatusLabel } from "@/lib/order-status"
 import Link from "next/link"
 import React from "react"
@@ -15,6 +17,7 @@ export default async function CustomerOrdersPage() {
     where: { customerId: session.user.id },
     orderBy: { createdAt: "desc" },
     take: 50,
+    include: { parcels: { orderBy: { sortOrder: "asc" } } },
   })
 
   return (
@@ -30,6 +33,13 @@ export default async function CustomerOrdersPage() {
                 <div>
                   <div className="text-sm text-muted-foreground">{o.orderNumber}</div>
                   <div className="text-lg font-medium">{o.description || o.packageDescription}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {o.parcels.length
+                      ? o.parcels
+                          .map((parcel) => parcelCatalogPath(parcel) ?? getCategoryPath(parcel.packageType).label)
+                          .join(", ")
+                      : getCategoryPath(o.packageType).text}
+                  </div>
                   <div className="text-sm text-gray-600">
                     Status: {orderStatusLabel(o.status)}
                     {o.paymentStatus === "PAID" ? " · Paid" : ""}

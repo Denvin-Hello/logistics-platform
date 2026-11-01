@@ -3,8 +3,10 @@
 import type React from "react"
 
 import { useState } from "react"
+import Link from "next/link"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,6 +33,7 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
   const [providerCapacity, setProviderCapacity] = useState("")
   const [providerExperience, setProviderExperience] = useState("")
   const [signupMode, setSignupMode] = useState<"customer" | "provider">("customer")
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
@@ -68,6 +71,12 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
       return
     }
 
+    if (!acceptedTerms) {
+      setMessage("Please agree to the Terms of Service and Privacy Policy to continue.")
+      setIsLoading(false)
+      return
+    }
+
     if (currentMode === "customer" && !customerName.trim()) {
       setMessage("Please enter your full name.")
       setIsLoading(false)
@@ -99,6 +108,7 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
         vehicleType: currentMode === "provider" ? providerVehicleType : undefined,
         vehicleCapacityKg: currentMode === "provider" && providerCapacity ? Number(providerCapacity) : undefined,
         yearsExperience: currentMode === "provider" && providerExperience ? Number(providerExperience) : undefined,
+        acceptTerms: acceptedTerms,
       }),
     })
 
@@ -343,6 +353,26 @@ export function AuthForm({ googleEnabled, githubEnabled }: AuthFormProps) {
                       required
                       onChange={(e) => setEmail(e.target.value)}
                     />
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="accept-terms"
+                      checked={acceptedTerms}
+                      onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                      className="mt-1"
+                    />
+                    <Label htmlFor="accept-terms" className="text-sm font-normal leading-5">
+                      I agree to the{" "}
+                      <Link href="/terms" className="text-primary underline-offset-4 hover:underline">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/privacy" className="text-primary underline-offset-4 hover:underline">
+                        Privacy Policy
+                      </Link>
+                      .
+                    </Label>
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>

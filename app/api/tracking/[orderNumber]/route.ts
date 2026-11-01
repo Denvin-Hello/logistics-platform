@@ -7,6 +7,8 @@ import { formatDateTime } from "@/lib/format"
 
 export const dynamic = "force-dynamic"
 
+const NO_STORE = { "Cache-Control": "no-store" }
+
 const step = (id: number, status: string, description: string, location: string, timestamp: string, completed: boolean) => ({
   id: String(id),
   status,
@@ -16,17 +18,34 @@ const step = (id: number, status: string, description: string, location: string,
   completed,
 })
 
+function displayName(provider: { name: string | null; businessName: string | null } | null | undefined): string {
+  const business = provider?.businessName?.trim()
+  if (business) return business
+  const parts = (provider?.name || "").trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "a delivery provider"
+  return parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0]
+}
+
+function maskPhone(phone: string | null | undefined): string {
+  const digits = (phone || "").replace(/\D/g, "")
+  if (digits.length < 4) return "—"
+  return `••• ••• ${digits.slice(-4)}`
+}
+
 export async function GET(request: NextRequest, { params }: { params: { orderNumber: string } }) {
   const rate = rateLimit(request, { limit: 30, windowMs: 60_000 })
   if (!rate.ok) {
-    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 })
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429, headers: NO_STORE })
   }
 
   // A tracking number alone is not enough — require the email on the order so
   // an order number can't be used to enumerate customers and addresses.
   const email = request.nextUrl.searchParams.get("email")?.trim().toLowerCase()
   if (!email) {
-    return NextResponse.json({ error: "Enter the email used for this delivery." }, { status: 401 })
+    return NextResponse.json(
+      { error: "Enter the email used for this delivery." },
+      { status: 401, headers: NO_STORE },
+    )
   }
 
   const order = await prisma.order.findUnique({
@@ -35,10 +54,14 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
   })
 
   if (!order || (order.customerEmail || "").trim().toLowerCase() !== email) {
-    return NextResponse.json({ error: "No delivery found for that order number and email." }, { status: 404 })
+    return NextResponse.json(
+      { error: "No delivery found for that order number and email." },
+      { status: 404, headers: NO_STORE },
+    )
   }
 
-  const providerName = order.assignedProvider?.businessName || order.assignedProvider?.name || "a delivery provider"
+  const providerName = displayName(order.assignedProvider)
+  const canContactDriver = order.status === ORDER_STATUS.IN_TRANSIT
   const route =
     order.pickupLat != null && order.pickupLng != null && order.deliveryLat != null && order.deliveryLng != null
       ? await getRoute(
@@ -47,6 +70,24 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
         )
       : null
   const routeEstimate = route ? `About ${Math.max(1, Math.round(route.durationS / 60))} min by road` : null
+
+  const driverLocation =
+    order.driverLat != null && order.driverLng != null
+      ? { lat: order.driverLat, lng: order.driverLng }
+      : null
+  const driverRoute =
+    order.status === ORDER_STATUS.IN_TRANSIT &&
+    driverLocation &&
+    order.deliveryLat != null &&
+    order.deliveryLng != null
+      ? await getRoute(driverLocation, { lat: order.deliveryLat, lng: order.deliveryLng })
+      : null
+  const driverEstimate = driverRoute
+    ? `About ${Math.max(1, Math.round(driverRoute.durationS / 60))} min to destination`
+    : null
+  const driverAgeSeconds = order.driverLocationUpdatedAt
+    ? Math.max(0, Math.round((Date.now() - order.driverLocationUpdatedAt.getTime()) / 1000))
+    : null
   const events = []
   let n = 0
 
@@ -104,7 +145,7 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
       order.deliveredAt
         ? "Delivered"
         : order.status === ORDER_STATUS.IN_TRANSIT
-          ? routeEstimate ?? "On the way — see live map"
+          ? driverEstimate ?? routeEstimate ?? "On the way — see live map"
           : "See timeline for latest update",
     startedAt: order.startedAt?.toISOString() ?? null,
     pickupAddress: order.pickupAddress,
@@ -122,23 +163,25 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
     liveTracking:
       order.status === ORDER_STATUS.ASSIGNED || order.status === ORDER_STATUS.IN_TRANSIT
         ? {
-            driverLocation:
-              order.driverLat != null && order.driverLng != null
-                ? {
-                    lat: order.driverLat,
-                    lng: order.driverLng,
-                    updatedAt: order.driverLocationUpdatedAt?.toISOString() ?? null,
-                  }
-                : null,
+            driverLocation: driverLocation
+              ? {
+                  ...driverLocation,
+                  updatedAt: order.driverLocationUpdatedAt?.toISOString() ?? null,
+                }
+              : null,
+            driverLocationAgeSeconds: driverAgeSeconds,
+            driverLocationStale: driverAgeSeconds != null && driverAgeSeconds > 120,
             pickupAddress: order.pickupAddress,
             deliveryAddress: order.deliveryAddress,
-            estimatedArrival: routeEstimate ?? "See timeline for latest update",
+            estimatedArrival: driverEstimate ?? routeEstimate ?? "See timeline for latest update",
+            pollAfterMs: order.status === ORDER_STATUS.IN_TRANSIT ? 5000 : 15000,
             driverInfo: {
-              name: providerName,
-              phone: order.assignedProvider?.phone || "—",
+              displayName: providerName,
+              phone: canContactDriver ? order.assignedProvider?.phone || "—" : maskPhone(order.assignedProvider?.phone),
+              canContact: canContactDriver,
               vehicle: order.assignedProvider?.vehicleType || "—",
             },
           }
         : undefined,
-  })
+  }, { headers: NO_STORE })
 }

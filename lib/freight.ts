@@ -74,6 +74,16 @@ export function getCategory(value: string | null | undefined): GoodsCategory {
   return GOODS_CATEGORIES.find((c) => c.value === "other")!
 }
 
+export function getCategoryPath(value: string | null | undefined) {
+  const category = getCategory(value)
+  return {
+    category,
+    group: category.group,
+    label: category.label,
+    text: `${category.group} · ${category.label}`,
+  }
+}
+
 export interface VehicleClass {
   code: string
   label: string

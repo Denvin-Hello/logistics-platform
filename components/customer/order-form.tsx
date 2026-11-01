@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,9 +10,25 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { GOODS_CATEGORIES, quoteFreight } from "@/lib/freight"
-import { MapPin, Package, Clock, DollarSign, Truck, CheckCircle2 } from "lucide-react"
+import { PackageTypePicker } from "@/components/customer/package-type-picker"
+import {
+  catalogItemPath,
+  CUSTOM_ITEM_KEY,
+  getCatalogItem,
+  isCatalogItemBlocked,
+  type CatalogItem,
+} from "@/lib/package-catalog"
+import { formatRands } from "@/lib/format"
+import {
+  MapPin,
+  Package,
+  DollarSign,
+  Truck,
+  CheckCircle2,
+  Trash2,
+  Loader2,
+  Clock,
+} from "lucide-react"
 
 interface OrderDetails {
   orderId: string
@@ -20,10 +36,24 @@ interface OrderDetails {
   description: string
 }
 
+interface ParcelDraft {
+  id: string
+  itemKey: string
+  itemLabel: string
+  catalogCategory: string
+  catalogSubcategory: string
+  packageType: string
+  description: string
+  length: string
+  width: string
+  height: string
+  weight: string
+  quantity: string
+}
+
 interface FormData {
   pickupName: string
   pickupPhone: string
-  pickupEmail: string
   pickupAddress: string
   pickupDate: string
   pickupTime: string
@@ -31,26 +61,68 @@ interface FormData {
   deliveryPhone: string
   deliveryAddress: string
   deliveryInstructions: string
-  packageType: string
-  weight: string
-  length: string
-  width: string
-  height: string
-  packageDescription: string
-  fragile: boolean
-  insurance: boolean
-  signature: boolean
+  description: string
+  parcels: ParcelDraft[]
 }
 
-export function OrderForm() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
+interface QuoteResult {
+  id: string
+  status: string
+  expiresAt: string
+  distanceKm: number
+  distanceM: number
+  chargeableWeightKg: number
+  baseFare: number
+  distanceFare: number
+  weightFare: number
+  subtotal: number
+  total: number
+  minimumApplied: boolean
+}
 
-  const [formData, setFormData] = useState<FormData>({
+function newParcel(item: CatalogItem, id: string): ParcelDraft {
+  return {
+    id,
+    itemKey: item.value,
+    itemLabel: item.label,
+    catalogCategory: item.category,
+    catalogSubcategory: item.subcategory,
+    packageType: item.packageType,
+    description: "",
+    length: String(item.defaultDimensionsCm.length),
+    width: String(item.defaultDimensionsCm.width),
+    height: String(item.defaultDimensionsCm.height),
+    weight: String(item.defaultWeightKg),
+    quantity: "1",
+  }
+}
+
+function formatCountdown(seconds: number) {
+  const mins = Math.floor(Math.max(0, seconds) / 60)
+  const secs = Math.max(0, seconds) % 60
+  return `${mins}:${String(secs).padStart(2, "0")}`
+}
+
+export function OrderForm({ initialItemKeys = [] }: { initialItemKeys?: string[] }) {
+  const [isQuoting, setIsQuoting] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [quote, setQuote] = useState<QuoteResult | null>(null)
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null)
+  const [clock, setClock] = useState(() => Date.now())
+  const startItems = Array.from(
+    new Map(
+      initialItemKeys
+        .map((itemKey) => getCatalogItem(itemKey))
+        .filter((item): item is CatalogItem => !!item && !isCatalogItemBlocked(item))
+        .map((item) => [item.value, item]),
+    ).values(),
+  )
+  const nextParcelId = useRef(startItems.length + 1)
+
+  const [form, setForm] = useState<FormData>({
     pickupName: "",
     pickupPhone: "",
-    pickupEmail: "",
     pickupAddress: "",
     pickupDate: "",
     pickupTime: "",
@@ -58,75 +130,166 @@ export function OrderForm() {
     deliveryPhone: "",
     deliveryAddress: "",
     deliveryInstructions: "",
-    packageType: "small_parcel",
-    weight: "1",
-    length: "0",
-    width: "0",
-    height: "0",
-    packageDescription: "",
-    fragile: false,
-    insurance: false,
-    signature: false,
+    description: "",
+    parcels: startItems.map((item, index) => newParcel(item, `parcel-${index + 1}`)),
   })
 
-  const liveQuote = useMemo(() => {
-    try {
-      return quoteFreight({
-        packageType: formData.packageType,
-        weightKg: Number(formData.weight) || 0,
-        lengthCm: Number(formData.length) || 0,
-        widthCm: Number(formData.width) || 0,
-        heightCm: Number(formData.height) || 0,
-        fragile: formData.fragile,
-        insurance: formData.insurance,
-        signatureRequired: formData.signature,
-      })
-    } catch {
-      return null
-    }
-  }, [formData.packageType, formData.weight, formData.length, formData.width, formData.height, formData.fragile, formData.insurance, formData.signature])
+  useEffect(() => {
+    if (!quote) return
+    const timer = setInterval(() => setClock(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [quote])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const remainingSeconds = quote
+    ? Math.floor((new Date(quote.expiresAt).getTime() - clock) / 1000)
+    : 0
+  const quoteExpired = !!quote && remainingSeconds <= 0
+
+  function update(patch: Partial<Omit<FormData, "parcels">>) {
+    setForm((prev) => ({ ...prev, ...patch }))
+    setQuote(null)
     setError(null)
+  }
+
+  function updateParcel(id: string, patch: Partial<ParcelDraft>) {
+    setForm((prev) => ({
+      ...prev,
+      parcels: prev.parcels.map((parcel) => (parcel.id === id ? { ...parcel, ...patch } : parcel)),
+    }))
+    setQuote(null)
+    setError(null)
+  }
+
+  function syncSelection(itemKeys: string[]) {
+    setForm((prev) => {
+      const existing = new Map(prev.parcels.map((parcel) => [parcel.itemKey, parcel]))
+      const parcels: ParcelDraft[] = []
+
+      for (const itemKey of itemKeys) {
+        const current = existing.get(itemKey)
+        if (current) {
+          parcels.push(current)
+          continue
+        }
+
+        const item = getCatalogItem(itemKey)
+        if (!item || isCatalogItemBlocked(item)) continue
+        const id = `parcel-${nextParcelId.current}`
+        nextParcelId.current += 1
+        parcels.push(newParcel(item, id))
+      }
+
+      return { ...prev, parcels }
+    })
+    setQuote(null)
+    setError(null)
+  }
+
+  function removeParcel(id: string) {
+    setForm((prev) => ({ ...prev, parcels: prev.parcels.filter((parcel) => parcel.id !== id) }))
+    setQuote(null)
+  }
+
+  function validateParcels() {
+    if (form.parcels.length === 0) {
+      throw new Error("Select at least one item to send.")
+    }
+
+    return form.parcels.map((parcel, index) => {
+      if (parcel.itemKey === CUSTOM_ITEM_KEY && !parcel.description.trim()) {
+        throw new Error("Describe the custom item so providers know what to collect.")
+      }
+
+      const values = {
+        lengthCm: Number(parcel.length),
+        widthCm: Number(parcel.width),
+        heightCm: Number(parcel.height),
+        actualWeightKg: Number(parcel.weight),
+        quantity: Number(parcel.quantity),
+      }
+      if (
+        !Number.isFinite(values.lengthCm) ||
+        !Number.isFinite(values.widthCm) ||
+        !Number.isFinite(values.heightCm) ||
+        values.lengthCm <= 0 ||
+        values.widthCm <= 0 ||
+        values.heightCm <= 0
+      ) {
+        throw new Error(`Enter length, width and height for parcel ${index + 1}.`)
+      }
+      if (!Number.isFinite(values.actualWeightKg) || values.actualWeightKg <= 0) {
+        throw new Error(`Enter the actual weight for parcel ${index + 1}.`)
+      }
+      if (!Number.isInteger(values.quantity) || values.quantity < 1 || values.quantity > 50) {
+        throw new Error(`Enter a whole-number quantity between 1 and 50 for parcel ${index + 1}.`)
+      }
+      return {
+        packageType: parcel.packageType,
+        itemKey: parcel.itemKey,
+        itemLabel: parcel.itemLabel,
+        catalogCategory: parcel.catalogCategory,
+        catalogSubcategory: parcel.catalogSubcategory,
+        description: parcel.description,
+        ...values,
+      }
+    })
+  }
+
+  async function handleQuote(e: React.FormEvent) {
+    e.preventDefault()
+    setIsQuoting(true)
+    setError(null)
+    setQuote(null)
 
     try {
-      const response = await fetch("/api/orders/create", {
+      const parcels = validateParcels()
+      const response = await fetch("/api/quotes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderDetails: {
-            customerName: formData.pickupName,
-            customerEmail: formData.pickupEmail,
-            pickupAddress: formData.pickupAddress,
-            pickupPhone: formData.pickupPhone,
-            pickupDate: formData.pickupDate,
-            pickupTime: formData.pickupTime,
-            deliveryAddress: formData.deliveryAddress,
-            deliveryName: formData.deliveryName,
-            deliveryPhone: formData.deliveryPhone,
-            deliveryInstructions: formData.deliveryInstructions,
-            packageType: formData.packageType,
-            weight: formData.weight,
-            length: formData.length,
-            width: formData.width,
-            height: formData.height,
-            packageDescription: formData.packageDescription,
-            fragile: formData.fragile,
-            insurance: formData.insurance,
-            signatureRequired: formData.signature,
-            signature: formData.signature,
-          },
+          source: "FORM",
+          pickupAddress: form.pickupAddress,
+          pickupPhone: form.pickupPhone,
+          pickupDate: form.pickupDate,
+          pickupTime: form.pickupTime,
+          deliveryAddress: form.deliveryAddress,
+          deliveryName: form.deliveryName,
+          deliveryPhone: form.deliveryPhone,
+          deliveryInstructions: form.deliveryInstructions,
+          parcels,
         }),
       })
 
       const result = await response.json()
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Unable to calculate a quote.")
+      }
+
+      setQuote(result.quote)
+      setClock(Date.now())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to calculate a quote.")
+    } finally {
+      setIsQuoting(false)
+    }
+  }
+
+  async function handleConfirm() {
+    if (!quote) return
+    setIsConfirming(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/quotes/${quote.id}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      const result = await response.json()
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Unable to create order")
+        if (response.status === 410) setQuote(null)
+        throw new Error(result.error || "Unable to create your order.")
       }
 
       setOrderDetails({
@@ -135,9 +298,9 @@ export function OrderForm() {
         description: result.order.description,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred while creating your order")
+      setError(err instanceof Error ? err.message : "Unable to create your order.")
     } finally {
-      setIsLoading(false)
+      setIsConfirming(false)
     }
   }
 
@@ -161,7 +324,7 @@ export function OrderForm() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Amount to pay on delivery</span>
-              <span className="font-semibold">R{orderDetails.amount}</span>
+              <span className="font-semibold">{formatRands(orderDetails.amount)}</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Keep your order number and email address handy — you'll need both to track this delivery.
@@ -181,15 +344,18 @@ export function OrderForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-5xl mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Create New Delivery Order</h1>
-        <p className="text-muted-foreground">Fill in the details below to request a delivery</p>
+        <p className="text-muted-foreground">
+          Choose what you're sending, adjust the measurements, get a road-distance quote, then confirm. The
+          price is locked until the quote expires.
+        </p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleQuote} className="space-y-6">
             {error ? (
               <div className="rounded-md border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive-foreground">
                 {error}
@@ -202,7 +368,7 @@ export function OrderForm() {
                   <MapPin className="h-5 w-5 text-accent" />
                   Pickup Information
                 </CardTitle>
-                <CardDescription>Where should we collect the package?</CardDescription>
+                <CardDescription>Where should we collect the parcel?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -210,43 +376,32 @@ export function OrderForm() {
                     <Label htmlFor="pickup-name">Contact Name</Label>
                     <Input
                       id="pickup-name"
-                      value={formData.pickupName}
+                      value={form.pickupName}
                       placeholder="John Smith"
                       required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, pickupName: e.target.value }))}
+                      onChange={(e) => update({ pickupName: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="pickup-phone">Phone Number</Label>
                     <Input
                       id="pickup-phone"
-                      value={formData.pickupPhone}
+                      value={form.pickupPhone}
                       type="tel"
                       placeholder="+27 12 345 6789"
                       required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, pickupPhone: e.target.value }))}
+                      onChange={(e) => update({ pickupPhone: e.target.value })}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pickup-email">Email Address</Label>
-                  <Input
-                    id="pickup-email"
-                    type="email"
-                    value={formData.pickupEmail}
-                    placeholder="john@example.com"
-                    required
-                    onChange={(e) => setFormData((prev) => ({ ...prev, pickupEmail: e.target.value }))}
-                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pickup-address">Pickup Address</Label>
                   <Textarea
                     id="pickup-address"
-                    value={formData.pickupAddress}
+                    value={form.pickupAddress}
                     placeholder="123 Main Street, Cape Town, 8001"
                     required
-                    onChange={(e) => setFormData((prev) => ({ ...prev, pickupAddress: e.target.value }))}
+                    onChange={(e) => update({ pickupAddress: e.target.value })}
                   />
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -255,15 +410,14 @@ export function OrderForm() {
                     <Input
                       id="pickup-date"
                       type="date"
-                      value={formData.pickupDate}
-                      required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, pickupDate: e.target.value }))}
+                      value={form.pickupDate}
+                      onChange={(e) => update({ pickupDate: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="pickup-time">Preferred Time</Label>
-                    <Select value={formData.pickupTime} onValueChange={(value) => setFormData((prev) => ({ ...prev, pickupTime: value }))}>
-                      <SelectTrigger>
+                    <Select value={form.pickupTime} onValueChange={(value) => update({ pickupTime: value })}>
+                      <SelectTrigger id="pickup-time">
                         <SelectValue placeholder="Select time" />
                       </SelectTrigger>
                       <SelectContent>
@@ -283,7 +437,7 @@ export function OrderForm() {
                   <Truck className="h-5 w-5 text-accent" />
                   Delivery Information
                 </CardTitle>
-                <CardDescription>Where should we deliver the package?</CardDescription>
+                <CardDescription>Where should we deliver the parcels?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -291,10 +445,10 @@ export function OrderForm() {
                     <Label htmlFor="delivery-name">Recipient Name</Label>
                     <Input
                       id="delivery-name"
-                      value={formData.deliveryName}
+                      value={form.deliveryName}
                       placeholder="Jane Doe"
                       required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, deliveryName: e.target.value }))}
+                      onChange={(e) => update({ deliveryName: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -302,10 +456,10 @@ export function OrderForm() {
                     <Input
                       id="delivery-phone"
                       type="tel"
-                      value={formData.deliveryPhone}
+                      value={form.deliveryPhone}
                       placeholder="+27 12 345 6789"
                       required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, deliveryPhone: e.target.value }))}
+                      onChange={(e) => update({ deliveryPhone: e.target.value })}
                     />
                   </div>
                 </div>
@@ -313,19 +467,19 @@ export function OrderForm() {
                   <Label htmlFor="delivery-address">Delivery Address</Label>
                   <Textarea
                     id="delivery-address"
-                    value={formData.deliveryAddress}
+                    value={form.deliveryAddress}
                     placeholder="456 Oak Avenue, Stellenbosch, 7600"
                     required
-                    onChange={(e) => setFormData((prev) => ({ ...prev, deliveryAddress: e.target.value }))}
+                    onChange={(e) => update({ deliveryAddress: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="delivery-instructions">Special Instructions</Label>
                   <Textarea
                     id="delivery-instructions"
-                    value={formData.deliveryInstructions}
+                    value={form.deliveryInstructions}
                     placeholder="Ring doorbell, leave at front door if no answer..."
-                    onChange={(e) => setFormData((prev) => ({ ...prev, deliveryInstructions: e.target.value }))}
+                    onChange={(e) => update({ deliveryInstructions: e.target.value })}
                   />
                 </div>
               </CardContent>
@@ -335,130 +489,148 @@ export function OrderForm() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-accent" />
-                  Package Information
+                  Parcels
                 </CardTitle>
-                <CardDescription>Tell us about what you're sending</CardDescription>
+                <CardDescription>
+                  Pick one or more items. We prefill typical measurements and weight, which you can adjust.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="package-type">Package Type</Label>
-                    <Select
-                      value={formData.packageType}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, packageType: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select package type" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-80">
-                        {["Documents & small items", "Household & bulky", "Food & perishables", "Fragile & special handling", "Restricted"].map((group) => (
-                          <div key={group}>
-                            <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              {group}
-                            </div>
-                            {GOODS_CATEGORIES.filter((c) => c.group === group).map((c) => (
-                              <SelectItem key={c.value} value={c.value} title={`${c.description} — e.g. ${c.examples}`}>
-                                {c.label}
-                              </SelectItem>
-                            ))}
-                          </div>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <CardContent className="space-y-6">
+                <PackageTypePicker
+                  value={form.parcels.map((parcel) => parcel.itemKey)}
+                  onChange={syncSelection}
+                  idPrefix="order"
+                />
+
+                {form.parcels.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    Select one or more items above. Each item gets its own measurements and quantity.
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="package-weight">Weight (kg)</Label>
-                    <Input
-                      id="package-weight"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={formData.weight}
-                      placeholder="2.5"
-                      required
-                      onChange={(e) => setFormData((prev) => ({ ...prev, weight: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="package-length">Length (cm)</Label>
-                    <Input
-                      id="package-length"
-                      type="number"
-                      min="0"
-                      value={formData.length}
-                      placeholder="30"
-                      onChange={(e) => setFormData((prev) => ({ ...prev, length: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="package-width">Width (cm)</Label>
-                    <Input
-                      id="package-width"
-                      type="number"
-                      min="0"
-                      value={formData.width}
-                      placeholder="20"
-                      onChange={(e) => setFormData((prev) => ({ ...prev, width: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="package-height">Height (cm)</Label>
-                    <Input
-                      id="package-height"
-                      type="number"
-                      min="0"
-                      value={formData.height}
-                      placeholder="10"
-                      onChange={(e) => setFormData((prev) => ({ ...prev, height: e.target.value }))}
-                    />
-                  </div>
-                </div>
+                ) : null}
+
+                {form.parcels.map((parcel, index) => {
+                  const item = getCatalogItem(parcel.itemKey)
+                  return (
+                    <div key={parcel.id} className="rounded-2xl border p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {index + 1}. {parcel.itemLabel}
+                          </p>
+                          {item ? (
+                            <p className="text-xs text-muted-foreground">{catalogItemPath(item)}</p>
+                          ) : null}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => removeParcel(parcel.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-length`}>Length (cm)</Label>
+                          <Input
+                            id={`${parcel.id}-length`}
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            value={parcel.length}
+                            onChange={(e) => updateParcel(parcel.id, { length: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-width`}>Width (cm)</Label>
+                          <Input
+                            id={`${parcel.id}-width`}
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            value={parcel.width}
+                            onChange={(e) => updateParcel(parcel.id, { width: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-height`}>Height (cm)</Label>
+                          <Input
+                            id={`${parcel.id}-height`}
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            value={parcel.height}
+                            onChange={(e) => updateParcel(parcel.id, { height: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-quantity`}>Quantity</Label>
+                          <Input
+                            id={`${parcel.id}-quantity`}
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={parcel.quantity}
+                            onChange={(e) => updateParcel(parcel.id, { quantity: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-weight`}>Actual weight per item (kg)</Label>
+                          <Input
+                            id={`${parcel.id}-weight`}
+                            type="number"
+                            min="0.1"
+                            step="0.1"
+                            value={parcel.weight}
+                            onChange={(e) => updateParcel(parcel.id, { weight: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${parcel.id}-description`}>
+                            {parcel.itemKey === "custom" ? "Describe the item" : "Parcel description (optional)"}
+                          </Label>
+                          <Input
+                            id={`${parcel.id}-description`}
+                            value={parcel.description}
+                            placeholder={parcel.itemKey === "custom" ? "Tell us what you're sending" : "What's inside?"}
+                            onChange={(e) => updateParcel(parcel.id, { description: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
                 <div className="space-y-2">
-                  <Label htmlFor="package-description">Package Description</Label>
+                  <Label htmlFor="package-description">Delivery notes (optional)</Label>
                   <Textarea
                     id="package-description"
-                    value={formData.packageDescription}
-                    placeholder="Describe the contents of your package..."
-                    onChange={(e) => setFormData((prev) => ({ ...prev, packageDescription: e.target.value }))}
+                    value={form.description}
+                    placeholder="Anything else the provider should know?"
+                    onChange={(e) => update({ description: e.target.value })}
                   />
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="fragile"
-                      checked={formData.fragile}
-                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, fragile: Boolean(checked) }))}
-                    />
-                    <Label htmlFor="fragile">Fragile - Handle with care</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="insurance"
-                      checked={formData.insurance}
-                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, insurance: Boolean(checked) }))}
-                    />
-                    <Label htmlFor="insurance">Add insurance coverage (+R25)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="signature"
-                      checked={formData.signature}
-                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, signature: Boolean(checked) }))}
-                    />
-                    <Label htmlFor="signature">Require signature on delivery (+R10)</Label>
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading || !!liveQuote?.blocked}>
-              {liveQuote?.blocked
-                ? "Restricted goods — contact support"
-                : isLoading
-                  ? "Submitting request..."
-                  : "Request Delivery — Pay on Delivery"}
+            <Button type="submit" className="w-full" size="lg" disabled={isQuoting}>
+              {isQuoting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Calculating road distance...
+                </>
+              ) : quote ? (
+                "Get a fresh quote"
+              ) : (
+                "Get delivery quote"
+              )}
             </Button>
           </form>
         </div>
@@ -468,61 +640,84 @@ export function OrderForm() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-accent" />
-                Order Summary
+                Delivery Quote
               </CardTitle>
+              <CardDescription>Road distance, not straight-line distance.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {liveQuote ? (
-                <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
-                  <p className="text-sm font-semibold">How your goods are calculated</p>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Actual weight</span>
-                    <span>{liveQuote.actualKg.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Volumetric (L×W×H ÷ 5000)</span>
-                    <span>{liveQuote.volumetricKg.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Chargeable (heavier wins)</span>
-                    <span>{liveQuote.chargeableKg.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Category average ({liveQuote.category.label})</span>
-                    <span>{liveQuote.category.meanKg.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Blended need (law of averages)</span>
-                    <span>{liveQuote.blendedKg.toFixed(1)} kg → needs {liveQuote.requiredKg.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Vehicle needed</span>
-                    <span className="font-semibold">{liveQuote.vehicle.label}</span>
-                  </div>
-                  {liveQuote.blocked ? (
-                    <p className="text-sm text-destructive">{liveQuote.blockReason}</p>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="space-y-2">
-                {liveQuote
-                  ? liveQuote.breakdown.map((b) => (
-                      <div key={b.label} className="flex justify-between text-sm gap-4">
-                        <span className="text-muted-foreground">{b.label}</span>
-                        <span>R{b.amount}</span>
+              {quote ? (
+                <>
+                  <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Road distance</span>
+                      <span>{quote.distanceKm.toFixed(1)} km</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Chargeable weight</span>
+                      <span>{quote.chargeableWeightKg.toFixed(1)} kg</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Base fare</span>
+                      <span>{formatRands(quote.baseFare)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Distance fare</span>
+                      <span>{formatRands(quote.distanceFare)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Weight charge</span>
+                      <span>{formatRands(quote.weightFare)}</span>
+                    </div>
+                    {quote.minimumApplied ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Minimum applied</span>
+                        <span>{formatRands(quote.total)}</span>
                       </div>
-                    ))
-                  : null}
-                <div className="flex justify-between text-sm font-semibold border-t pt-2">
-                  <span>Estimated total</span>
-                  <span>{liveQuote ? `R${liveQuote.amount}` : "—"}</span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
+                    <span className="text-sm font-medium">Total</span>
+                    <span className="text-xl font-bold">{formatRands(quote.total)}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    {quoteExpired ? (
+                      <span className="text-destructive">Quote expired — request a new price.</span>
+                    ) : (
+                      <span>Expires in {formatCountdown(remainingSeconds)}</span>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    className="w-full"
+                    size="lg"
+                    onClick={handleConfirm}
+                    disabled={isConfirming || quoteExpired}
+                  >
+                    {isConfirming ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creating order...
+                      </>
+                    ) : (
+                      `Confirm delivery — ${formatRands(quote.total)}`
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    The order is created from this stored quote. No payment is taken now; you pay on delivery.
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Fill in the route and parcel measurements, then select “Get delivery quote”. We use the
+                    road distance and the heavier of actual or volumetric weight.
+                  </p>
                 </div>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-4">
-                <p className="text-sm text-muted-foreground">
-                  No payment is taken now. You pay the agreed amount when the delivery arrives.
-                </p>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

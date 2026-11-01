@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
 import { sendProviderSignupNotification } from "@/lib/email"
+import { recordSignupConsent } from "@/lib/consent"
+import { geocodeAddress } from "@/lib/geocode"
 import { z } from "zod"
 
 const signupSchema = z.object({
@@ -14,6 +16,7 @@ const signupSchema = z.object({
   vehicleType: z.string().max(120).optional(),
   vehicleCapacityKg: z.coerce.number().int().min(0).max(50000).optional(),
   yearsExperience: z.coerce.number().int().min(0).max(80).optional(),
+  acceptTerms: z.boolean().refine((value) => value === true, "Accept the Terms of Service and Privacy Policy."),
 })
 
 export async function POST(req: Request) {
@@ -54,13 +57,19 @@ export async function POST(req: Request) {
       // Same role → re-request a magic link. Different role → generic message
       // (no enumeration of account existence or role).
       if (existing.role === (isProvider ? "PROVIDER" : "CUSTOMER")) {
+        try {
+          await recordSignupConsent(existing.id)
+        } catch (err) {
+          console.error("Consent record failed:", err)
+        }
         return NextResponse.json({ ok: true })
       }
       return NextResponse.json({ error: "This email is already registered." }, { status: 409 })
     }
 
+    let createdUserId: string
     try {
-      await prisma.user.create({
+      const user = await prisma.user.create({
         data: {
           email: normalizedEmail,
           name: name.trim(),
@@ -74,6 +83,7 @@ export async function POST(req: Request) {
           yearsExperience: isProvider ? (yearsExperience ?? null) : null,
         },
       })
+      createdUserId = user.id
     } catch (err: unknown) {
       // Unique constraint: another request created the user between check and create.
       if (typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002") {
@@ -82,7 +92,28 @@ export async function POST(req: Request) {
       throw err
     }
 
+    try {
+      await recordSignupConsent(createdUserId)
+    } catch (err) {
+      console.error("Consent record failed:", err)
+    }
+
     if (isProvider) {
+      const serviceAreaText = (serviceArea || "").trim()
+      if (serviceAreaText) {
+        try {
+          const point = await geocodeAddress(serviceAreaText, { timeoutMs: 2500 })
+          if (point) {
+            await prisma.user.update({
+              where: { id: createdUserId },
+              data: { serviceAreaLat: point.lat, serviceAreaLng: point.lng },
+            })
+          }
+        } catch (err) {
+          console.error("Provider service area geocode failed:", err)
+        }
+      }
+
       try {
         await sendProviderSignupNotification({
           name: name.trim(),

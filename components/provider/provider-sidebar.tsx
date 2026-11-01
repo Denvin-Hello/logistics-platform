@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SignOutButton } from "@/components/auth/sign-out-button"
-import { LayoutDashboard, Package, MapPin, DollarSign, Truck, Eye, Satellite } from "lucide-react"
+import { NotificationBell } from "@/components/notifications/notification-bell"
+import { LayoutDashboard, Package, MapPin, DollarSign, Truck, Eye, Satellite, ShieldCheck, UserCog } from "lucide-react"
 
 const navigation = [
   { name: "Dashboard", href: "/provider", icon: LayoutDashboard },
@@ -13,7 +14,9 @@ const navigation = [
   { name: "Route Planning", href: "/provider/routes", icon: MapPin },
   { name: "Live Tracking", href: "/provider/live-tracking", icon: Satellite },
   { name: "Driver Safety", href: "/provider/driver-safety", icon: Eye },
+  { name: "Compliance", href: "/provider/compliance", icon: ShieldCheck },
   { name: "Earnings", href: "/provider/earnings", icon: DollarSign },
+  { name: "Profile", href: "/provider/profile", icon: UserCog },
 ]
 
 export function ProviderSidebar() {
@@ -21,14 +24,17 @@ export function ProviderSidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col bg-card border-r">
-      <div className="flex items-center gap-2 p-6 border-b">
-        <div className="bg-accent rounded-lg p-2">
-          <Truck className="h-6 w-6 text-accent-foreground" />
+      <div className="flex items-center justify-between gap-2 p-6 border-b">
+        <div className="flex items-center gap-2">
+          <div className="bg-accent rounded-lg p-2">
+            <Truck className="h-6 w-6 text-accent-foreground" />
+          </div>
+          <div>
+            <h2 className="font-semibold">Provider Portal</h2>
+            <p className="text-sm text-muted-foreground">LogiConnect</p>
+          </div>
         </div>
-        <div>
-          <h2 className="font-semibold">Provider Portal</h2>
-          <p className="text-sm text-muted-foreground">LogiConnect</p>
-        </div>
+        <NotificationBell />
       </div>
 
       <nav className="flex-1 p-4 space-y-2">

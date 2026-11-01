@@ -75,6 +75,16 @@ export function Footer() {
                   About Us
                 </Link>
               </li>
+              <li>
+                <Link href="/privacy" className="hover:text-accent">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-accent">
+                  Terms of Service
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

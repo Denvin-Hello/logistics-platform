@@ -3,11 +3,13 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CustomerSidebar } from "@/components/customer/customer-sidebar"
+import { PackageTypeGrid } from "@/components/customer/package-type-grid"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Package, Plus, MapPin, DollarSign, TrendingUp, Zap } from "lucide-react"
 import { formatRands } from "@/lib/format"
+import { getCategoryPath } from "@/lib/freight"
 import { orderStatusColor, orderStatusLabel } from "@/lib/order-status"
 
 export const dynamic = "force-dynamic"
@@ -149,6 +151,21 @@ export default async function CustomerDashboard() {
             </Card>
           </div>
 
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold">Send by package type</h2>
+                <p className="text-sm text-muted-foreground">
+                  Pick a package type and subcategory to start a delivery.
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/customer/new-order">Start blank order</Link>
+              </Button>
+            </div>
+            <PackageTypeGrid />
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Recent Orders</h2>
@@ -174,6 +191,9 @@ export default async function CustomerDashboard() {
                       <div className="flex items-center justify-between flex-wrap gap-4">
                         <div>
                           <h3 className="font-semibold">#{order.orderNumber}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {getCategoryPath(order.packageType).text}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {order.pickupAddress} → {order.deliveryAddress}
                           </p>
