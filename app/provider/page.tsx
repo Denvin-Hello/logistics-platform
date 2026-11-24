@@ -14,6 +14,7 @@ import { Package, DollarSign, Clock, CheckCircle2, AlertTriangle } from "lucide-
 import { formatDate, formatRands } from "@/lib/format"
 import { ORDER_STATUS } from "@/lib/order-status"
 import { isAutoAssignmentEnabled, isOpenPoolAfterEscalation } from "@/lib/assignment-policy"
+import { ChatWidget } from "@/components/chat/chat-widget"
 
 export const dynamic = "force-dynamic"
 
@@ -124,6 +125,11 @@ export default async function ProviderDashboard() {
       <ProviderSidebar />
 
       <div className="flex-1 overflow-auto">
+        <ChatWidget
+          userId={session?.user?.id || ""}
+          userRole={session?.user?.role || "PROVIDER"}
+          userName={session?.user?.name || ""}
+        />
         <div className="p-8">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>

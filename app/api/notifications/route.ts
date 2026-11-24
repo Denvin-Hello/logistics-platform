@@ -9,6 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/notifications"
+import { handleDbError } from "@/lib/db-error"
 
 export const dynamic = "force-dynamic"
 
@@ -27,19 +28,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { notifications, unreadCount } = await listNotifications(session.user.id)
+  try {
+    const { notifications, unreadCount } = await listNotifications(session.user.id)
 
-  return NextResponse.json(
-    {
-      unreadCount,
-      notifications: notifications.map((notification) => ({
-        ...notification,
-        createdAt: notification.createdAt.toISOString(),
-        readAt: notification.readAt?.toISOString() ?? null,
-      })),
-    },
-    { headers: { "Cache-Control": "no-store" } },
-  )
+    return NextResponse.json(
+      {
+        unreadCount,
+        notifications: notifications.map((notification) => ({
+          ...notification,
+          createdAt: notification.createdAt.toISOString(),
+          readAt: notification.readAt?.toISOString() ?? null,
+        })),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    )
+  } catch (err) {
+    return handleDbError(err)
+  }
 }
 
 export async function PATCH(request: NextRequest) {
@@ -69,12 +74,16 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 })
   }
 
-  if (id) {
-    await markNotificationRead(session.user.id, id)
-  } else {
-    await markAllNotificationsRead(session.user.id)
-  }
+  try {
+    if (id) {
+      await markNotificationRead(session.user.id, id)
+    } else {
+      await markAllNotificationsRead(session.user.id)
+    }
 
-  const unreadCount = await getUnreadNotificationCount(session.user.id)
-  return NextResponse.json({ ok: true, unreadCount })
+    const unreadCount = await getUnreadNotificationCount(session.user.id)
+    return NextResponse.json({ ok: true, unreadCount })
+  } catch (err) {
+    return handleDbError(err)
+  }
 }

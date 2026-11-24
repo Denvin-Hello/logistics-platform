@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server"
 import { Resend } from "resend"
 import { z } from "zod"
 import { isSameOrigin, rateLimit } from "@/lib/security"
+import { handleDbError } from "@/lib/db-error"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -37,8 +38,8 @@ export async function POST(req: NextRequest) {
     const safeName = name.replace(/[\r\n]+/g, " ")
 
     const { error } = await resend.emails.send({
-      from: "LoggiConnect <hello@loggiconnect.co.za>",
-      to: "ramsiladenvin@gmail.com",
+      from: "LoggiConnect <hello@mail.loggiconnect.co.za>",
+      to: "hello@mail.loggiconnect.co.za",
       replyTo: email,
       subject: `New message from ${safeName}`,
       text: `From: ${safeName} (${email})\n\n${message}`,
@@ -51,7 +52,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error("Contact route error", err)
-    return NextResponse.json({ ok: false }, { status: 500 })
+    return handleDbError(err)
   }
 }

@@ -138,6 +138,7 @@ export async function GET(request: NextRequest, { params }: { params: { orderNum
   }
 
   return NextResponse.json({
+    orderId: order.id,
     orderNumber: order.orderNumber,
     status: orderStatusLabel(order.status),
     statusKey: order.status,

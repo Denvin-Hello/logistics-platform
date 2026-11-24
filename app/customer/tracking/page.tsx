@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import useSWR from "swr"
 import { CustomerSidebar } from "@/components/customer/customer-sidebar"
 import { TrackingForm } from "@/components/tracking/tracking-form"
 import { TrackingTimeline } from "@/components/tracking/tracking-timeline"
@@ -18,6 +19,7 @@ interface TrackingEvent {
 }
 
 interface TrackingData {
+  orderId: string
   status: string
   statusKey: string
   estimatedDelivery: string
@@ -33,6 +35,16 @@ export default function CustomerTrackingPage() {
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [showMap, setShowMap] = useState(false)
+
+  const { data: locationData } = useSWR(
+    trackingData?.orderId ? ["/api/location", { orderId: trackingData.orderId }] : null,
+    async ([url, params]) => {
+      const res = await fetch(`${url}?orderId=${params.orderId}`, { cache: "no-store" })
+      if (!res.ok) return null
+      return res.json()
+    },
+    { refreshInterval: 5000, revalidateOnFocus: false },
+  )
 
   const handleTrack = async (number: string, email: string) => {
     setNotFound(false)

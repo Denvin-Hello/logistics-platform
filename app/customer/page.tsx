@@ -11,6 +11,7 @@ import { Package, Plus, MapPin, DollarSign, TrendingUp, Zap } from "lucide-react
 import { formatRands } from "@/lib/format"
 import { getCategoryPath } from "@/lib/freight"
 import { orderStatusColor, orderStatusLabel } from "@/lib/order-status"
+import { ChatWidget } from "@/components/chat/chat-widget"
 
 export const dynamic = "force-dynamic"
 
@@ -36,6 +37,11 @@ export default async function CustomerDashboard() {
       <CustomerSidebar />
 
       <div className="flex-1 overflow-auto">
+        <ChatWidget
+          userId={session?.user?.id || ""}
+          userRole={session?.user?.role || "CUSTOMER"}
+          userName={session?.user?.name || ""}
+        />
         <div className="p-8">
           <div className="flex items-center justify-between mb-8">
             <div>

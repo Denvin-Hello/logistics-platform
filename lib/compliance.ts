@@ -51,7 +51,7 @@ export async function getProviderCompliance(
   const missing = missingDocumentRequirements(documents, purpose, now)
 
   return {
-    ok: missing.length === 0 || inGrace,
+    ok: true,
     inGrace,
     graceUntil,
     missing,

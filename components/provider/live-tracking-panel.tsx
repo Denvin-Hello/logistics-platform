@@ -67,10 +67,10 @@ export function LiveTrackingPanel({ orders }: { orders: ActiveOrder[] }) {
 
   async function sendLocation(orderId: string, lat: number, lng: number, accuracy?: number) {
     try {
-      const res = await fetch("/api/tracking/location", {
+      const res = await fetch("/api/location", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, lat, lng, accuracy }),
+        body: JSON.stringify({ orderId, lat, lng }),
       })
       if (res.ok) {
         lastSentRef.current = Date.now()

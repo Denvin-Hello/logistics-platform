@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isSameOrigin, rateLimit } from "@/lib/security"
 import { z } from "zod"
+import { handleDbError } from "@/lib/db-error"
 
 const supportSchema = z.object({
   subject: z.string().min(1, "Subject is required").max(200),
@@ -47,7 +48,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {
-    console.error("Support create error", err)
-    return NextResponse.json({ ok: false }, { status: 500 })
+    return handleDbError(err)
   }
 }

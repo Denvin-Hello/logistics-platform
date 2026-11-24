@@ -7,6 +7,7 @@ import { parcelCatalogPath } from "@/lib/package-catalog"
 import { orderStatusLabel } from "@/lib/order-status"
 import Link from "next/link"
 import React from "react"
+import { ChatWidget } from "@/components/chat/chat-widget"
 
 export default async function CustomerOrdersPage() {
   const session = await getServerSession(authOptions)
@@ -22,6 +23,11 @@ export default async function CustomerOrdersPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8">
+      <ChatWidget
+        userId={session.user.id}
+        userRole={session.user.role}
+        userName={session.user.name || ""}
+      />
       <h1 className="text-2xl font-semibold mb-4">Your Orders</h1>
       {orders.length === 0 ? (
         <p>No orders yet. Create a new delivery to get started.</p>

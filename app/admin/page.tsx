@@ -5,6 +5,9 @@ import { OrdersTable } from "@/components/admin/orders-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { paymentsMode } from "@/lib/payfast"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { ChatWidget } from "@/components/chat/chat-widget"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +17,7 @@ function pctChange(current: number, previous: number) {
 }
 
 export default async function AdminDashboard() {
+  const session = await getServerSession(authOptions)
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -81,6 +85,11 @@ export default async function AdminDashboard() {
       <AdminSidebar />
 
       <div className="flex-1 overflow-auto">
+        <ChatWidget
+          userId={session?.user?.id || ""}
+          userRole={session?.user?.role || "ADMIN"}
+          userName={session?.user?.name || ""}
+        />
         <div className="p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>

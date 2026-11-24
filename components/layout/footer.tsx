@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { SUPPORT_EMAIL } from "@/lib/company"
 
 export function Footer() {
   return (
@@ -84,6 +85,14 @@ export function Footer() {
                 <Link href="/terms" className="hover:text-accent">
                   Terms of Service
                 </Link>
+              </li>
+              <li>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="hover:text-accent"
+                >
+                  {SUPPORT_EMAIL}
+                </a>
               </li>
             </ul>
           </div>

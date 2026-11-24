@@ -17,6 +17,7 @@ export function Header() {
     { name: "Tracking", href: "/tracking" },
     { name: "Driver Safety", href: "/driver-safety" },
     { name: "About", href: "/about" },
+    { name: "FAQ", href: "/faq" },
   ]
 
   return (
