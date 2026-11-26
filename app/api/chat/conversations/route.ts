@@ -25,6 +25,37 @@ export async function GET(req: NextRequest) {
 
   const isAdmin = session.user.role === "ADMIN"
 
+  const terminalStatuses = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED]
+
+  const chattableOrders = await prisma.order.findMany({
+    where: isAdmin
+      ? { assignedProviderId: { not: null }, status: { notIn: terminalStatuses } }
+      : session.user.role === "CUSTOMER"
+        ? { customerId: session.user.id, assignedProviderId: { not: null }, status: { notIn: terminalStatuses } }
+        : { assignedProviderId: session.user.id, status: { notIn: terminalStatuses } },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      customer: { select: { name: true, email: true } },
+      assignedProvider: { select: { name: true, email: true } },
+      conversation: { select: { id: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  })
+
+  const orders = chattableOrders.map((order) => {
+    const counterpart = session.user.role === "PROVIDER" ? order.customer : order.assignedProvider
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      counterpartName: counterpart?.name || counterpart?.email || "Unknown",
+      conversationId: order.conversation?.id ?? null,
+    }
+  })
+
   const conversations = await prisma.conversation.findMany({
     where: isAdmin
       ? {}
@@ -39,13 +70,13 @@ export async function GET(req: NextRequest) {
       messages: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { id: true, body: true, createdAt: true, senderId: true },
+        select: { id: true, body: true, createdAt: true, senderId: true, readAt: true },
       },
     },
     orderBy: { updatedAt: "desc" },
   })
 
-  return NextResponse.json({ conversations })
+  return NextResponse.json({ conversations, orders })
 }
 
 export async function POST(req: NextRequest) {
